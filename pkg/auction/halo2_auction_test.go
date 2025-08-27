@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/luxfi/adx/proof/halo2"
+	"github.com/luxfi/adx/pkg/proof/halo2"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"
 	"github.com/stretchr/testify/require"
