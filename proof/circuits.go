@@ -158,9 +158,7 @@ func (ac *AuctionCircuit) Prove(pk *ProvingKey, witness Witness) (*Proof, error)
 		Response:   response,
 	}
 	
-	ac.log.Debug("auction proof generated",
-		"winner_bid", winnerBid,
-		"price", price)
+	ac.log.Debug("Auction proof generated")
 	
 	return proof, nil
 }
@@ -294,10 +292,7 @@ func (bc *BudgetCircuit) Prove(pk *ProvingKey, witness Witness) (*Proof, error) 
 	challenge := hashing.ComputeHash256(append(commitment, pk.Parameters...))
 	response := hashing.ComputeHash256(append(newBudget.Bytes(), challenge...))
 	
-	bc.log.Debug("budget proof generated",
-		"old", oldBudget,
-		"delta", delta,
-		"new", newBudget)
+	bc.log.Debug("Budget proof generated")
 	
 	return &Proof{
 		Commitment: commitment,
@@ -386,10 +381,7 @@ func (fc *FrequencyCircuit) Prove(pk *ProvingKey, witness Witness) (*Proof, erro
 	challenge := hashing.ComputeHash256(append(commitment, pk.Parameters...))
 	response := hashing.ComputeHash256(append(counterAfter.Bytes(), challenge...))
 	
-	fc.log.Debug("frequency proof generated",
-		"before", counterBefore,
-		"after", counterAfter,
-		"cap", fc.Cap)
+	fc.log.Debug("Frequency proof generated")
 	
 	return &Proof{
 		Commitment: commitment,

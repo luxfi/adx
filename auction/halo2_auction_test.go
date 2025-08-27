@@ -16,7 +16,7 @@ import (
 
 func TestHalo2Auction(t *testing.T) {
 	require := require.New(t)
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	auctionID := ids.GenerateTestID()
 	reserve := uint64(100)
@@ -70,7 +70,7 @@ func TestHalo2Auction(t *testing.T) {
 
 func TestHalo2BudgetManager(t *testing.T) {
 	require := require.New(t)
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	// Create budget manager
 	manager, err := NewHalo2BudgetManager(logger)
@@ -114,7 +114,7 @@ func TestHalo2BudgetManager(t *testing.T) {
 
 func TestHalo2FrequencyManager(t *testing.T) {
 	require := require.New(t)
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	// Create frequency manager
 	manager := NewHalo2FrequencyManager(logger)
@@ -167,7 +167,7 @@ func TestHalo2FrequencyManager(t *testing.T) {
 
 func TestHalo2AuctionWithManyBids(t *testing.T) {
 	require := require.New(t)
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	auctionID := ids.GenerateTestID()
 	reserve := uint64(50)
@@ -208,7 +208,7 @@ func TestHalo2AuctionWithManyBids(t *testing.T) {
 }
 
 func BenchmarkHalo2AuctionWithProof(b *testing.B) {
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	auctionID := ids.GenerateTestID()
 	reserve := uint64(100)
@@ -244,7 +244,7 @@ func BenchmarkHalo2AuctionWithProof(b *testing.B) {
 }
 
 func BenchmarkHalo2BudgetProof(b *testing.B) {
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	manager, _ := NewHalo2BudgetManager(logger)
 	advertiserID := ids.GenerateTestID()
 	
@@ -265,7 +265,7 @@ func BenchmarkHalo2BudgetProof(b *testing.B) {
 }
 
 func BenchmarkHalo2FrequencyProof(b *testing.B) {
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	manager := NewHalo2FrequencyManager(logger)
 	
 	b.ResetTimer()

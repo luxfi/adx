@@ -7,8 +7,159 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/luxfi/adx/pkg/dex"
 	"github.com/shopspring/decimal"
 )
+
+// VMState represents the state of the VM
+type VMState struct {
+	adSlots       map[uint64]*AdSlot
+	adSlotOrders  map[string]*AdSlotOrder
+	adMM_Pools    map[uint64]*AdMM_Pool
+}
+
+// AdMM_Pool represents an automated market maker pool for ad slots
+type AdMM_Pool struct {
+	SlotID        uint64          `json:"slot_id"`
+	Reserve0      decimal.Decimal `json:"reserve0"`       // Ad slot tokens
+	Reserve1      decimal.Decimal `json:"reserve1"`       // AUSD tokens
+	ReserveAUSD   decimal.Decimal `json:"reserve_ausd"`   // AUSD liquidity
+	ReserveSlots  uint64          `json:"reserve_slots"`  // Ad slot supply
+	K             decimal.Decimal `json:"k"`              // Constant product
+	TotalLP       decimal.Decimal `json:"total_lp"`       // Total LP tokens
+	LPTokenSupply decimal.Decimal `json:"lp_token_supply"`
+	LastPrice     decimal.Decimal `json:"last_price"`
+	TimeDecayRate decimal.Decimal `json:"time_decay_rate"` // λ in pricing formula
+	CreatedAt     time.Time       `json:"created_at"`
+}
+
+// SetAdSlot stores an ad slot in the state
+func (v *VMState) SetAdSlot(slot *AdSlot) error {
+	if v.adSlots == nil {
+		v.adSlots = make(map[uint64]*AdSlot)
+	}
+	v.adSlots[slot.ID] = slot
+	return nil
+}
+
+// GetAdSlot retrieves an ad slot from the state
+func (v *VMState) GetAdSlot(id uint64) (*AdSlot, error) {
+	if v.adSlots == nil {
+		return nil, fmt.Errorf("ad slot not found")
+	}
+	slot, ok := v.adSlots[id]
+	if !ok {
+		return nil, fmt.Errorf("ad slot not found")
+	}
+	return slot, nil
+}
+
+// SetAdSlotOrder stores an order in the state
+func (v *VMState) SetAdSlotOrder(order *AdSlotOrder) error {
+	if v.adSlotOrders == nil {
+		v.adSlotOrders = make(map[string]*AdSlotOrder)
+	}
+	v.adSlotOrders[order.OrderID] = order
+	return nil
+}
+
+// GetAdSlotOrder retrieves an order from the state
+func (v *VMState) GetAdSlotOrder(orderID string) (*AdSlotOrder, error) {
+	if v.adSlotOrders == nil {
+		return nil, fmt.Errorf("order not found")
+	}
+	order, ok := v.adSlotOrders[orderID]
+	if !ok {
+		return nil, fmt.Errorf("order not found")
+	}
+	return order, nil
+}
+
+// SetAdMM_Pool stores an AMM pool in the state
+func (v *VMState) SetAdMM_Pool(slotID uint64, pool *AdMM_Pool) error {
+	if v.adMM_Pools == nil {
+		v.adMM_Pools = make(map[uint64]*AdMM_Pool)
+	}
+	v.adMM_Pools[slotID] = pool
+	return nil
+}
+
+// GetAdMM_Pool retrieves an AMM pool from the state
+func (v *VMState) GetAdMM_Pool(slotID uint64) (*AdMM_Pool, bool) {
+	if v.adMM_Pools == nil {
+		return nil, false
+	}
+	pool, ok := v.adMM_Pools[slotID]
+	return pool, ok
+}
+
+// Request and response types for RPC methods
+type RevealBidRequest struct {
+	AuctionID     string          `json:"auction_id"`
+	BidID         string          `json:"bid_id"`
+	OrderID       string          `json:"order_id"`
+	Reveal        []byte          `json:"reveal"`
+	RevealedPrice decimal.Decimal `json:"revealed_price"`
+	Nonce         string          `json:"nonce"`
+}
+
+type RevealBidResponse struct {
+	Success       bool            `json:"success"`
+	Message       string          `json:"message"`
+	RevealedPrice decimal.Decimal `json:"revealed_price,omitempty"`
+}
+
+type CreateAdMM_PoolRequest struct {
+	TokenA       string          `json:"token_a"`
+	TokenB       string          `json:"token_b"`
+	AmountA      decimal.Decimal `json:"amount_a"`
+	AmountB      decimal.Decimal `json:"amount_b"`
+	SlotID       uint64          `json:"slot_id"`
+	InitialAUSD  decimal.Decimal `json:"initial_ausd"`
+	InitialSlots uint64          `json:"initial_slots"`
+}
+
+type CreateAdMM_PoolResponse struct {
+	PoolID  string `json:"pool_id"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+type SwapAdMM_Request struct {
+	PoolID      string          `json:"pool_id"`
+	TokenIn     string          `json:"token_in"`
+	AmountIn    decimal.Decimal `json:"amount_in"`
+	MinAmountOut decimal.Decimal `json:"min_amount_out"`
+}
+
+type SwapAdMM_Response struct {
+	AmountOut decimal.Decimal `json:"amount_out"`
+	Success   bool            `json:"success"`
+	Message   string          `json:"message"`
+}
+
+type RecordDeliveryRequest struct {
+	AdSlotID    uint64    `json:"ad_slot_id"`
+	Impressions uint64    `json:"impressions"`
+	Timestamp   time.Time `json:"timestamp"`
+}
+
+type RecordDeliveryResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+
+// convertToGDexOrder converts an AdSlotOrder to a dex.Order
+func convertToGDexOrder(order *AdSlotOrder, slot *AdSlot) *dex.Order {
+	return &dex.Order{
+		OrderID:  order.OrderID,
+		AssetID:  fmt.Sprintf("adslot-%d", slot.ID),
+		Price:    order.Price,
+		Quantity: decimal.NewFromInt(int64(order.Quantity)),
+		IsBuy:    order.OrderType == "buy",
+	}
+}
 
 // AdSlotManager - Semi-Fungible Tokens for perishable ad inventory
 // Implements high-performance DEX primitives with time-decay pricing
@@ -16,6 +167,23 @@ type AdSlotManager struct {
 	state  *VMState
 	dex    *dex.Engine
 	nextID uint64
+}
+
+// estimateOrderFill estimates how much of an order will be filled
+func (a *AdSlotManager) estimateOrderFill(order *AdSlotOrder, slot *AdSlot) uint64 {
+	// Simplified estimation - in production would check order book depth
+	if order.OrderType == "buy" && order.Price.GreaterThanOrEqual(slot.FloorCPM) {
+		return order.Quantity // Assume full fill if above floor
+	}
+	return order.Quantity / 2 // Partial fill estimate
+}
+
+// hashCommitment creates a commitment hash for sealed bid verification
+func (a *AdSlotManager) hashCommitment(price decimal.Decimal, nonce string) string {
+	h := sha256.New()
+	h.Write([]byte(price.String()))
+	h.Write([]byte(nonce))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 // AdSlot represents perishable ad inventory with time-decay pricing
@@ -54,30 +222,26 @@ type SecondaryListing struct {
 	FlashLoanOK  bool            `json:"flash_loan_ok"` // Allow flash borrows
 }
 
-// AdMM_Pool for continuous liquidity (AMM for ad slots)
-type AdMM_Pool struct {
-	SlotID        uint64          `json:"slot_id"`
-	ReserveAUSD   decimal.Decimal `json:"reserve_ausd"`   // AUSD liquidity
-	ReserveSlots  uint64          `json:"reserve_slots"`  // Ad slot supply
-	LastPrice     decimal.Decimal `json:"last_price"`
-	LPTokenSupply decimal.Decimal `json:"lp_token_supply"`
-	TimeDecayRate decimal.Decimal `json:"time_decay_rate"` // λ in pricing formula
-	CreatedAt     time.Time       `json:"created_at"`
-}
 
-// Order represents limit/market orders for ad slots
+// AdSlotOrder represents limit/market orders for ad slots
 type AdSlotOrder struct {
-	ID            string          `json:"id"`
+	OrderID       string          `json:"order_id"`              // Primary order identifier
+	ID            string          `json:"id"`                   // Alternative ID field
 	TraderID      string          `json:"trader_id"`
-	SlotID        uint64          `json:"slot_id"`
+	AdSlotID      uint64          `json:"ad_slot_id"`           // Primary slot ID
+	SlotID        uint64          `json:"slot_id"`              // Alternative slot ID
 	IsBuy         bool            `json:"is_buy"`
-	OrderType     string          `json:"order_type"`     // "limit", "market", "commit-reveal"
-	LimitPrice    decimal.Decimal `json:"limit_price"`    // CPM in AUSD
-	Quantity      uint64          `json:"quantity"`       // Number of impressions
-	Filled        uint64          `json:"filled"`
-	Status        string          `json:"status"`         // "active", "filled", "canceled", "expired"
-	CreatedAt     time.Time       `json:"created_at"`
-	ExpiresAt     time.Time       `json:"expires_at,omitempty"`
+	OrderType     string          `json:"order_type"`           // "buy", "sell", "limit", "market", "commit-reveal"
+	Price         decimal.Decimal `json:"price"`                // Current price
+	LimitPrice    decimal.Decimal `json:"limit_price"`          // CPM in AUSD
+	Quantity      uint64          `json:"quantity"`             // Number of impressions
+	FilledQty     uint64          `json:"filled_qty"`           // Filled quantity
+	Filled        uint64          `json:"filled"`               // Alternative filled field  
+	Status        string          `json:"status"`               // "active", "filled", "canceled", "expired"
+	Timestamp     time.Time       `json:"timestamp"`            // Creation timestamp
+	CreatedAt     time.Time       `json:"created_at"`           // Alternative creation time
+	ExpiryTime    time.Time       `json:"expiry_time"`          // When order expires
+	ExpiresAt     time.Time       `json:"expires_at,omitempty"`  // Alternative expiry time
 	CommitHash    string          `json:"commit_hash,omitempty"`    // For sealed bids
 	RevealedPrice decimal.Decimal `json:"revealed_price,omitempty"` // After reveal
 	Revealed      bool            `json:"revealed,omitempty"`
@@ -120,10 +284,10 @@ func (a *AdSlotManager) CreateAdSlot(ctx context.Context, req *CreateAdSlotReque
 	}
 
 	// Store in state
-	a.state.SetAdSlot(slotID, slot)
+	a.state.SetAdSlot(slot)
 
 	// Mint SFT to publisher (using DEX engine as registry)
-	if err := a.dex.MintAsset(fmt.Sprintf("adslot-%d", slotID), req.Publisher, req.MaxImpressions); err != nil {
+	if err := a.dex.MintAsset(fmt.Sprintf("adslot-%d", slotID), req.Publisher, decimal.NewFromInt(int64(req.MaxImpressions))); err != nil {
 		return nil, fmt.Errorf("failed to mint SFT: %v", err)
 	}
 
@@ -137,9 +301,9 @@ func (a *AdSlotManager) CreateAdSlot(ctx context.Context, req *CreateAdSlotReque
 // PlaceOrder - Place limit/market order for ad slots
 func (a *AdSlotManager) PlaceOrder(ctx context.Context, req *PlaceOrderRequest) (*PlaceOrderResponse, error) {
 	// Validate slot exists and is active
-	slot, exists := a.state.GetAdSlot(req.SlotID)
-	if !exists {
-		return nil, fmt.Errorf("slot not found")
+	slot, err := a.state.GetAdSlot(req.SlotID)
+	if err != nil {
+		return nil, fmt.Errorf("slot not found: %v", err)
 	}
 	if !slot.Active {
 		return nil, fmt.Errorf("slot inactive")
@@ -161,15 +325,22 @@ func (a *AdSlotManager) PlaceOrder(ctx context.Context, req *PlaceOrderRequest) 
 
 	// Create order
 	order := &AdSlotOrder{
+		OrderID:    req.OrderID,
 		ID:         req.OrderID,
 		TraderID:   req.TraderID,
+		AdSlotID:   req.SlotID,
 		SlotID:     req.SlotID,
 		IsBuy:      req.IsBuy,
 		OrderType:  req.OrderType,
+		Price:      req.LimitPrice,
 		LimitPrice: req.LimitPrice,
 		Quantity:   req.Quantity,
+		FilledQty:  0,
+		Filled:     0,
 		Status:     "active",
+		Timestamp:  time.Now(),
 		CreatedAt:  time.Now(),
+		ExpiryTime: req.ExpiresAt,
 		ExpiresAt:  req.ExpiresAt,
 	}
 
@@ -182,7 +353,7 @@ func (a *AdSlotManager) PlaceOrder(ctx context.Context, req *PlaceOrderRequest) 
 	}
 
 	// Store order
-	a.state.SetAdSlotOrder(req.OrderID, order)
+	a.state.SetAdSlotOrder(order)
 
 	// Add to matching engine via DEX
 	dexOrder := convertToGDexOrder(order, slot)
@@ -194,15 +365,15 @@ func (a *AdSlotManager) PlaceOrder(ctx context.Context, req *PlaceOrderRequest) 
 		Success:      true,
 		OrderID:      req.OrderID,
 		CurrentPrice: currentPrice,
-		EstimatedFill: a.estimateOrderFill(order, slot),
+		EstimatedFill: decimal.NewFromInt(int64(a.estimateOrderFill(order, slot))),
 	}, nil
 }
 
 // RevealBid - Reveal sealed bid in commit-reveal auction
 func (a *AdSlotManager) RevealBid(ctx context.Context, req *RevealBidRequest) (*RevealBidResponse, error) {
-	order, exists := a.state.GetAdSlotOrder(req.OrderID)
-	if !exists {
-		return nil, fmt.Errorf("order not found")
+	order, err := a.state.GetAdSlotOrder(req.OrderID)
+	if err != nil {
+		return nil, fmt.Errorf("order not found: %v", err)
 	}
 	if order.OrderType != "commit-reveal" {
 		return nil, fmt.Errorf("not a commit-reveal order")
@@ -222,7 +393,7 @@ func (a *AdSlotManager) RevealBid(ctx context.Context, req *RevealBidRequest) (*
 	order.Revealed = true
 	order.LimitPrice = req.RevealedPrice // Use revealed price for matching
 
-	a.state.SetAdSlotOrder(req.OrderID, order)
+	a.state.SetAdSlotOrder(order)
 
 	return &RevealBidResponse{
 		Success:       true,
@@ -233,9 +404,9 @@ func (a *AdSlotManager) RevealBid(ctx context.Context, req *RevealBidRequest) (*
 // CreateAdMM_Pool - Create AMM pool for continuous liquidity
 func (a *AdSlotManager) CreateAdMM_Pool(ctx context.Context, req *CreateAdMM_PoolRequest) (*CreateAdMM_PoolResponse, error) {
 	// Validate slot
-	slot, exists := a.state.GetAdSlot(req.SlotID)
-	if !exists {
-		return nil, fmt.Errorf("slot not found")
+	slot, err := a.state.GetAdSlot(req.SlotID)
+	if err != nil {
+		return nil, fmt.Errorf("slot not found: %v", err)
 	}
 
 	// Check for existing pool
@@ -315,9 +486,9 @@ func (a *AdSlotManager) SwapAdMM(ctx context.Context, req *SwapAdMM_Request) (*S
 
 // RecordDelivery - Record impression delivery (burns tokens)
 func (a *AdSlotManager) RecordDelivery(ctx context.Context, req *RecordDeliveryRequest) (*RecordDeliveryResponse, error) {
-	slot, exists := a.state.GetAdSlot(req.SlotID)
-	if !exists {
-		return nil, fmt.Errorf("slot not found")
+	slot, err := a.state.GetAdSlot(req.SlotID)
+	if err != nil {
+		return nil, fmt.Errorf("slot not found: %v", err)
 	}
 
 	// Validate delivery window
@@ -333,10 +504,10 @@ func (a *AdSlotManager) RecordDelivery(ctx context.Context, req *RecordDeliveryR
 
 	// Record delivery
 	slot.DeliveredImprs += req.Count
-	a.state.SetAdSlot(req.SlotID, slot)
+	a.state.SetAdSlot(slot)
 
 	// Burn delivered tokens from circulation
-	if err := a.dex.BurnAsset(fmt.Sprintf("adslot-%d", req.SlotID), slot.Publisher, req.Count); err != nil {
+	if err := a.dex.BurnAsset(fmt.Sprintf("adslot-%d", req.SlotID), slot.Publisher, decimal.NewFromInt(int64(req.Count))); err != nil {
 		return nil, fmt.Errorf("failed to burn tokens: %v", err)
 	}
 

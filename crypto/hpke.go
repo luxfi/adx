@@ -5,6 +5,7 @@ package crypto
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -12,8 +13,6 @@ import (
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/sha3"
-	
-	"github.com/luxfi/adx/pkg/crypto/hashing"
 )
 
 var (
@@ -239,8 +238,9 @@ func (h *HPKE) encapsulateContentKey(contentKey, recipientPublicKey []byte) (*En
 	}, nil
 }
 
-// CreateCommitment creates a binding commitment to data
-func CreateCommitment(data []byte) []byte {
-	// Use Poseidon hash for ZK-friendliness (simplified to SHA3 here)
-	return hashing.ComputeHash256(data)
+// CreateCommitmentHPKE creates a binding commitment to data using HPKE
+func CreateCommitmentHPKE(data []byte) []byte {
+	// Use SHA256 for commitment
+	h := sha256.Sum256(data)
+	return h[:]
 }

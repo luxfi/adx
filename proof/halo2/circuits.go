@@ -5,10 +5,10 @@ package halo2
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"math/big"
 
-	"github.com/luxfi/adx/pkg/crypto/hashing"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"
 )
@@ -216,9 +216,7 @@ func (ac *AuctionCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 		ConstraintCount: ac.NumBids * 3, // Constraints for max selection, second price, range
 	}
 	
-	ac.log.Info("Halo2 auction circuit setup complete",
-		"num_bids", ac.NumBids,
-		"reserve", ac.Reserve)
+	ac.log.Info("Halo2 auction circuit setup complete")
 	
 	return pk, vk, nil
 }
@@ -271,10 +269,7 @@ func (ac *AuctionCircuit) Prove(pk *ProvingKey, witness *AuctionWitness) (*Halo2
 		Evaluations:        evaluations,
 	}
 	
-	ac.log.Debug("Halo2 auction proof generated",
-		"winner_index", witness.WinnerIndex,
-		"winning_bid", witness.WinningBid,
-		"clearing_price", witness.ClearingPrice)
+	ac.log.Debug("Halo2 auction proof generated")
 	
 	return proof, nil
 }
@@ -322,7 +317,8 @@ func (ac *AuctionCircuit) generateOpeningProof(witness *AuctionWitness, commitme
 	})
 	data = append(data, witnessHash.Bytes()...)
 	
-	return hashing.ComputeHash256(data)
+	h := sha256.Sum256(data)
+	return h[:]
 }
 
 // Verify verifies a Halo2 auction proof
@@ -360,9 +356,7 @@ func (ac *AuctionCircuit) Verify(vk *VerifyingKey, publicInputs *AuctionPublicIn
 	// Simplified constraint check
 	// In production, evaluate constraint polynomials at challenge point
 	
-	ac.log.Debug("Halo2 proof verified",
-		"clearing_price", publicInputs.ClearingPrice,
-		"num_commitments", len(proof.WitnessCommitments))
+	ac.log.Debug("Halo2 proof verified")
 	
 	return true
 }
@@ -471,19 +465,17 @@ func (bc *BudgetCircuit) Prove(pk *ProvingKey, witness *BudgetWitness) (*Halo2Pr
 	quotientCommit := bc.poseidon.Hash([]*big.Int{quotient})
 	
 	// Opening proof
-	openingProof := hashing.ComputeHash256(append(
+	h := sha256.Sum256(append(
 		witness.NewBudget.Bytes(),
 		witness.Delta.Bytes()...,
 	))
+	openingProof := h[:]
 	
 	evaluations := make(map[string]*big.Int)
 	evaluations["new_budget"] = witness.NewBudget
 	evaluations["delta"] = witness.Delta
 	
-	bc.log.Debug("Halo2 budget proof generated",
-		"old", witness.OldBudget,
-		"delta", witness.Delta,
-		"new", witness.NewBudget)
+	bc.log.Debug("Budget proof generated")
 	
 	return &Halo2Proof{
 		WitnessCommitments: commitments,
@@ -592,18 +584,16 @@ func (fc *FrequencyCircuit) Prove(pk *ProvingKey, witness *FrequencyWitness) (*H
 	quotientCommit := fc.poseidon.Hash([]*big.Int{quotient})
 	
 	// Opening proof
-	openingProof := hashing.ComputeHash256(append(
+	h2 := sha256.Sum256(append(
 		witness.CounterBefore.Bytes(),
 		witness.CounterAfter.Bytes()...,
 	))
+	openingProof := h2[:]
 	
 	evaluations := make(map[string]*big.Int)
 	evaluations["counter_after"] = witness.CounterAfter
 	
-	fc.log.Debug("Halo2 frequency proof generated",
-		"before", witness.CounterBefore,
-		"after", witness.CounterAfter,
-		"cap", fc.Cap)
+	fc.log.Debug("Frequency proof generated")
 	
 	return &Halo2Proof{
 		WitnessCommitments: commitments,

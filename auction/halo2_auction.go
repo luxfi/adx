@@ -86,7 +86,7 @@ func (ha *Halo2Auction) RunAuctionWithHalo2(decryptionKey []byte) (*Halo2Auction
 	// Generate Halo2 proof
 	proof, err := ha.circuit.Prove(ha.pk, witness)
 	if err != nil {
-		ha.log.Error("Halo2 proof generation failed", "error", err)
+		ha.log.Error("Halo2 proof generation failed")
 		return nil, ErrProofGenFailed
 	}
 	
@@ -109,12 +109,7 @@ func (ha *Halo2Auction) RunAuctionWithHalo2(decryptionKey []byte) (*Halo2Auction
 		return nil, errors.New("proof verification failed")
 	}
 	
-	ha.log.Info("Halo2 auction completed",
-		"auction_id", ha.ID,
-		"winner", outcome.WinnerID,
-		"price", outcome.ClearingPrice,
-		"proof_id", proofID,
-		"proof_size", len(proof.OpeningProof))
+	ha.log.Info("Halo2 auction completed")
 	
 	return &Halo2AuctionOutcome{
 		AuctionOutcome: *outcome,
@@ -178,7 +173,7 @@ func (ha *Halo2Auction) VerifyHalo2Proof(
 	
 	proof, exists := ha.proofs[proofID]
 	if !exists {
-		ha.log.Debug("Proof not found", "proof_id", proofID)
+		ha.log.Debug("Debug")
 		return false
 	}
 	
@@ -280,11 +275,7 @@ func (bm *Halo2BudgetManager) DeductBudgetWithProof(
 	proofID := ids.GenerateTestID()
 	bm.proofs[proofID] = proof
 	
-	bm.log.Info("Budget deducted with Halo2 proof",
-		"advertiser", advertiserID,
-		"amount", amount,
-		"new_budget", newBudget,
-		"proof_id", proofID)
+	bm.log.Info("Budget updated with proof")
 	
 	return &Halo2BudgetProof{
 		ProofID:         proofID,
@@ -411,12 +402,7 @@ func (fm *Halo2FrequencyManager) CheckAndIncrementWithProof(
 	proofID := ids.GenerateTestID()
 	fm.proofs[proofID] = proof
 	
-	fm.log.Debug("Frequency incremented with Halo2 proof",
-		"device", deviceID,
-		"campaign", campaignID,
-		"new_count", newCounter,
-		"cap", cap,
-		"proof_id", proofID)
+	fm.log.Debug("Frequency updated with proof")
 	
 	return &Halo2FrequencyProof{
 		ProofID:     proofID,
@@ -436,7 +422,7 @@ func (fm *Halo2FrequencyManager) VerifyFrequencyProof(proofData *Halo2FrequencyP
 	// Get verifying key for this cap
 	vk, exists := fm.vks[proofData.Cap]
 	if !exists {
-		fm.log.Debug("No verifying key for cap", "cap", proofData.Cap)
+		fm.log.Debug("Debug")
 		return false
 	}
 	

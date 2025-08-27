@@ -42,7 +42,7 @@ func TestPoseidonHash(t *testing.T) {
 
 func TestAuctionCircuit(t *testing.T) {
 	require := require.New(t)
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	numBids := 5
 	reserve := uint64(100)
@@ -126,7 +126,7 @@ func TestAuctionCircuit(t *testing.T) {
 
 func TestBudgetCircuit(t *testing.T) {
 	require := require.New(t)
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	// Create circuit
 	circuit := NewBudgetCircuit(logger)
@@ -189,7 +189,7 @@ func TestBudgetCircuit(t *testing.T) {
 
 func TestFrequencyCircuit(t *testing.T) {
 	require := require.New(t)
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	
 	cap := uint32(5)
 	
@@ -304,7 +304,7 @@ func TestFieldOperations(t *testing.T) {
 }
 
 func BenchmarkHalo2AuctionProof(b *testing.B) {
-	logger := log.NoLog{}
+	logger := log.NoOp()
 	numBids := 10
 	reserve := uint64(100)
 	

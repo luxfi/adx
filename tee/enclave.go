@@ -119,10 +119,7 @@ func (e *Enclave) performAttestation() error {
 	e.Attested = true
 	e.AttestedTime = time.Now()
 	
-	e.log.Info("enclave attested",
-		"type", e.Type,
-		"id", e.ID,
-		"mr_enclave", e.MREnclave[:8])
+	e.log.Info("Enclave attested")
 	
 	return nil
 }
@@ -209,10 +206,10 @@ func (e *Enclave) RunAuction(auctionID ids.ID, reserve uint64, encryptedBids [][
 	
 	// Decrypt bids inside enclave
 	decryptedBids := make([]*BidData, 0, len(encryptedBids))
-	for i, encBid := range encryptedBids {
+	for _, encBid := range encryptedBids {
 		bid, err := e.decryptBid(encBid)
 		if err != nil {
-			e.log.Debug("failed to decrypt bid", "index", i, "error", err)
+			e.log.Debug("Failed to decrypt bid")
 			continue
 		}
 		decryptedBids = append(decryptedBids, bid)
@@ -242,12 +239,7 @@ func (e *Enclave) RunAuction(auctionID ids.ID, reserve uint64, encryptedBids [][
 	
 	e.processed++
 	
-	e.log.Info("auction executed in enclave",
-		"auction", auctionID,
-		"bids", len(decryptedBids),
-		"winner", outcome.WinnerID,
-		"price", outcome.ClearingPrice,
-		"time_ms", result.ExecutionTime.Milliseconds())
+	e.log.Info("Auction processed in TEE")
 	
 	return result, nil
 }

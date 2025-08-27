@@ -26,6 +26,8 @@ LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) 
 # Binary output
 BINARY_NAME := adx-exchange
 MINER_BINARY := adx-miner
+DAEMON_BINARY := adxd
+ATTACK_BINARY := adx-attack
 BINARY_DIR := bin
 
 # Test parameters
@@ -48,6 +50,20 @@ help:
 	@echo "Running:"
 	@echo "  make run-exchange  - Run ADX exchange"
 	@echo "  make run-miner     - Run home miner"
+	@echo "  make run-local     - Run 5-node local network"
+	@echo "  make run-local-large - Run 10-node local network"
+	@echo ""
+	@echo "Attack Testing:"
+	@echo "  make attack-flood  - Run flood attack simulation"
+	@echo "  make attack-replay - Run replay attack"
+	@echo "  make attack-byzantine - Run Byzantine attack"
+	@echo "  make attack-dos    - Run DoS attack"
+	@echo "  make attack-all    - Run all attack scenarios"
+	@echo ""
+	@echo "Integration Tests:"
+	@echo "  make test-lifecycle - Run full lifecycle test"
+	@echo "  make test-concurrent - Test concurrent auctions"
+	@echo "  make test-byzantine - Test Byzantine resilience"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker-build  - Build Docker images"
@@ -55,7 +71,7 @@ help:
 	@echo "  make docker-clean  - Clean Docker resources"
 
 # Build targets
-build: build-exchange build-miner
+build: build-exchange build-miner build-daemon build-attack
 	@echo "✅ All binaries built successfully"
 
 build-exchange:
@@ -67,6 +83,16 @@ build-miner:
 	@echo "🔨 Building ADX miner..."
 	@mkdir -p $(BINARY_DIR)
 	@CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(LDFLAGS) -o $(BINARY_DIR)/$(MINER_BINARY) ./cmd/adx-miner
+
+build-daemon:
+	@echo "🔨 Building ADX daemon (adxd)..."
+	@mkdir -p $(BINARY_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(LDFLAGS) -o $(BINARY_DIR)/$(DAEMON_BINARY) ./cmd/adxd
+
+build-attack:
+	@echo "⚔️  Building attack simulator..."
+	@mkdir -p $(BINARY_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(LDFLAGS) -o $(BINARY_DIR)/$(ATTACK_BINARY) ./cmd/adx-attack
 
 # Test targets
 test:
@@ -103,6 +129,68 @@ run-exchange:
 run-miner:
 	@echo "⛏️ Starting ADX miner..."
 	@$(BINARY_DIR)/$(MINER_BINARY) --tunnel localxpose --cache-size 10GB
+
+# Local network targets
+run-local: build-daemon
+	@echo "🌐 Starting 5-node local network..."
+	@chmod +x scripts/run_local_network.sh
+	@./scripts/run_local_network.sh 5
+
+run-local-large: build-daemon
+	@echo "🌐 Starting 10-node local network..."
+	@chmod +x scripts/run_local_network.sh
+	@./scripts/run_local_network.sh 10
+
+stop-local:
+	@echo "🛑 Stopping local network..."
+	@pkill -f "adxd" || true
+	@rm -rf /tmp/adx-local-*
+
+# Lifecycle test targets
+test-lifecycle:
+	@echo "🔄 Running full lifecycle test..."
+	@$(GOTEST) -v -timeout 60s ./tests -run TestFullLifecycle
+
+test-concurrent:
+	@echo "⚡ Testing concurrent auctions..."
+	@$(GOTEST) -v -timeout 60s ./tests -run TestConcurrentAuctions
+
+test-byzantine:
+	@echo "👹 Testing Byzantine resilience..."
+	@$(GOTEST) -v -timeout 60s ./tests -run TestByzantineResilience
+
+# Attack simulation targets
+attack-flood: build-attack
+	@echo "🌊 Running flood attack..."
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type flood -duration 30s -workers 50 -rps 1000
+
+attack-replay: build-attack
+	@echo "🔁 Running replay attack..."
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type replay -duration 30s -workers 20
+
+attack-byzantine: build-attack
+	@echo "👹 Running Byzantine attack..."
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type byzantine -duration 30s -workers 10
+
+attack-dos: build-attack
+	@echo "💣 Running DoS attack..."
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type dos -duration 30s -workers 100
+
+attack-arbitrage: build-attack
+	@echo "💰 Running arbitrage attack..."
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type arbitrage -duration 30s -workers 5
+
+attack-all: build-attack
+	@echo "⚔️  Running all attack scenarios..."
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type flood -duration 10s
+	@sleep 2
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type replay -duration 10s  
+	@sleep 2
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type byzantine -duration 10s
+	@sleep 2
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type dos -duration 10s
+	@sleep 2
+	@$(BINARY_DIR)/$(ATTACK_BINARY) -type arbitrage -duration 10s
 
 # Docker targets
 docker-build:

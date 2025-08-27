@@ -140,12 +140,7 @@ func (d *DAG) AddHeader(header *core.BaseHeader, author ids.NodeID) error {
 	// Try to deliver
 	d.tryDeliver(vertex)
 	
-	d.log.Debug("header added to DAG",
-		"id", header.ID,
-		"type", header.Type,
-		"author", author,
-		"round", vertex.Round,
-		"predecessors", len(predecessors))
+	d.log.Debug("Vertex added")
 	
 	return nil
 }
@@ -175,10 +170,7 @@ func (d *DAG) handleEquivocation(v *Vertex) {
 	// Mark author as Byzantine
 	d.byzantine[v.Author] = true
 	
-	d.log.Warn("equivocation detected",
-		"author", v.Author,
-		"round", v.Round,
-		"vertex", v.Header.ID)
+	d.log.Warn("equivocation detected")
 	
 	// In Blocklace, equivocating vertices are included but marked
 	// This allows the protocol to continue making progress
@@ -231,10 +223,7 @@ func (d *DAG) tryDeliver(v *Vertex) {
 		d.height = v.Round
 	}
 	
-	d.log.Debug("vertex delivered",
-		"id", v.Header.ID,
-		"round", v.Round,
-		"sequence", len(d.sequence))
+	d.log.Debug("Vertex delivered")
 	
 	// Try to deliver successors
 	for _, succ := range v.Successors {
@@ -358,11 +347,7 @@ func (m *CordialMiner) ProposeHeader(headerType core.HeaderType, data []byte) (*
 	
 	m.round++
 	
-	m.log.Debug("header proposed",
-		"type", headerType,
-		"id", header.ID,
-		"round", m.round,
-		"predecessors", len(predecessors))
+	m.log.Debug("Header created")
 	
 	return header, nil
 }
@@ -371,7 +356,7 @@ func (m *CordialMiner) ProposeHeader(headerType core.HeaderType, data []byte) (*
 func (m *CordialMiner) ReceiveHeader(header *core.BaseHeader, sender ids.NodeID) error {
 	// Check if sender is Byzantine
 	if m.DAG.IsByzantine(sender) {
-		m.log.Debug("ignoring header from Byzantine node", "sender", sender)
+		m.log.Debug("Ignoring Byzantine sender")
 		return ErrByzantine
 	}
 	
@@ -379,7 +364,7 @@ func (m *CordialMiner) ReceiveHeader(header *core.BaseHeader, sender ids.NodeID)
 	if err := m.DAG.AddHeader(header, sender); err != nil {
 		if err == ErrEquivocation {
 			// Sender equivocated, now marked as Byzantine
-			m.log.Warn("equivocation from sender", "sender", sender)
+			m.log.Warn("equivocation from sender")
 		}
 		return err
 	}

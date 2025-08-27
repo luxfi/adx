@@ -76,9 +76,7 @@ func (bm *BudgetManager) SetBudget(advertiserID ids.ID, amount uint64) error {
 	
 	bm.budgets[advertiserID] = budget
 	
-	bm.log.Info("budget set",
-		"advertiser", advertiserID,
-		"amount", amount)
+	bm.log.Info("Budget funded")
 	
 	return nil
 }
@@ -124,10 +122,7 @@ func (bm *BudgetManager) DeductBudget(
 	// Track pending spend
 	bm.pending[advertiserID] += amount
 	
-	bm.log.Debug("budget deducted",
-		"advertiser", advertiserID,
-		"amount", amount,
-		"remaining", budget.Remaining)
+	bm.log.Debug("Budget reserved")
 	
 	return proof, nil
 }
@@ -229,10 +224,7 @@ func (bm *BudgetManager) CreateSettlement(
 	// Store receipt
 	bm.receipts = append(bm.receipts, receipt)
 	
-	bm.log.Info("settlement created",
-		"advertiser", advertiserID,
-		"publisher", publisherID,
-		"amount", amount)
+	bm.log.Info("Settlement completed")
 	
 	return receipt, nil
 }

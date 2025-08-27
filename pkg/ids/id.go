@@ -9,6 +9,9 @@ import (
 // ID represents a unique identifier
 type ID [32]byte
 
+// Empty is an empty ID
+var Empty = ID{}
+
 // GenerateTestID creates a random ID for testing
 func GenerateTestID() ID {
 	var id ID

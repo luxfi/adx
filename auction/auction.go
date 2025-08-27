@@ -77,7 +77,7 @@ func (a *Auction) SubmitBid(bid *SealedBid) error {
 	}
 	
 	a.Bids = append(a.Bids, bid)
-	a.log.Debug("bid submitted", "bidder", bid.BidderID, "auction", a.ID)
+	a.log.Debug("Bid added")
 	
 	return nil
 }
@@ -96,7 +96,7 @@ func (a *Auction) RunAuction(decryptionKey []byte) (*AuctionOutcome, error) {
 		// In production, this would be done in a TEE or with MPC
 		decrypted, err := a.decryptBid(sealedBid, decryptionKey, hpke)
 		if err != nil {
-			a.log.Debug("failed to decrypt bid", "bidder", sealedBid.BidderID, "error", err)
+			a.log.Debug("Failed to decrypt bid")
 			continue
 		}
 		
@@ -133,11 +133,7 @@ func (a *Auction) RunAuction(decryptionKey []byte) (*AuctionOutcome, error) {
 	}
 	
 	a.Outcome = outcome
-	a.log.Info("auction completed", 
-		"auction", a.ID,
-		"winner", winner.BidderID,
-		"price", clearingPrice,
-		"bids", len(validBids))
+	a.log.Info("Auction finalized")
 	
 	return outcome, nil
 }

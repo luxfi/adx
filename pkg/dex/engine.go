@@ -58,3 +58,49 @@ func (e *Engine) SetBalance(assetID, account string, amount decimal.Decimal) {
 	}
 	e.balances[assetID][account] = amount
 }
+
+// MintAsset creates new tokens for an account
+func (e *Engine) MintAsset(assetID, account string, amount decimal.Decimal) error {
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return fmt.Errorf("amount must be positive")
+	}
+	
+	if e.balances[assetID] == nil {
+		e.balances[assetID] = make(map[string]decimal.Decimal)
+	}
+	
+	currentBalance := e.balances[assetID][account]
+	e.balances[assetID][account] = currentBalance.Add(amount)
+	
+	return nil
+}
+
+// Order represents a trade order
+type Order struct {
+	OrderID  string
+	AssetID  string
+	Price    decimal.Decimal
+	Quantity decimal.Decimal
+	IsBuy    bool
+}
+
+// AddOrder adds a new order to the engine
+func (e *Engine) AddOrder(order *Order) error {
+	// Simplified order management - in production would have proper order book
+	return nil
+}
+
+// BurnAsset removes tokens from an account
+func (e *Engine) BurnAsset(assetID, account string, amount decimal.Decimal) error {
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return fmt.Errorf("amount must be positive")
+	}
+	
+	if e.balances[assetID] == nil || e.balances[assetID][account].LessThan(amount) {
+		return fmt.Errorf("insufficient balance")
+	}
+	
+	e.balances[assetID][account] = e.balances[assetID][account].Sub(amount)
+	
+	return nil
+}

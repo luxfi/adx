@@ -60,6 +60,38 @@ func NewFrequencyManager(logger log.Logger) *FrequencyManager {
 	}
 }
 
+// RecordImpression records an impression for tracking
+func (fm *FrequencyManager) RecordImpression(userID, campaignID string) error {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+	
+	key := userID + ":" + campaignID
+	counter, exists := fm.counters[key]
+	if !exists {
+		counter = &CampaignCounter{
+			Count: 0,
+		}
+		fm.counters[key] = counter
+	}
+	
+	counter.Count++
+	return nil
+}
+
+// GetImpressionCount returns the impression count for a user/campaign
+func (fm *FrequencyManager) GetImpressionCount(userID, campaignID string) uint32 {
+	fm.mu.RLock()
+	defer fm.mu.RUnlock()
+	
+	key := userID + ":" + campaignID
+	counter, exists := fm.counters[key]
+	if !exists {
+		return 0
+	}
+	
+	return counter.Count
+}
+
 // CheckAndIncrementCounter checks frequency cap and increments if allowed
 func (fm *FrequencyManager) CheckAndIncrementCounter(
 	deviceID string,
@@ -96,10 +128,7 @@ func (fm *FrequencyManager) CheckAndIncrementCounter(
 	// Update epoch root
 	fm.updateEpochRoot()
 	
-	fm.log.Debug("frequency check passed",
-		"campaign", campaignID,
-		"count", counter.Count,
-		"cap", counter.Cap)
+	fm.log.Debug("Frequency check")
 	
 	return proof, nil
 }
@@ -146,8 +175,7 @@ func (fm *FrequencyManager) RedeemPrivacyToken(
 	// Generate frequency proof
 	freqProof := fm.generateTokenProof(bucket, token)
 	
-	fm.log.Debug("privacy token redeemed",
-		"campaign", campaignID)
+	fm.log.Debug("Token redeemed")
 	
 	return freqProof, nil
 }
@@ -258,9 +286,7 @@ func (fm *FrequencyManager) IssueTokens(
 	
 	fm.tokens[campaignID.String()] = bucket
 	
-	fm.log.Debug("tokens issued",
-		"campaign", campaignID,
-		"count", count)
+	fm.log.Debug("Tokens issued")
 	
 	return bucket.Tokens, nil
 }

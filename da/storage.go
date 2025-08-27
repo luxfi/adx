@@ -117,11 +117,7 @@ func (da *DataAvailability) StoreBlob(data []byte) (*BlobReference, error) {
 	da.commits[blobID] = commitment
 	da.stored++
 	
-	da.log.Debug("blob stored",
-		"id", blobID,
-		"size", len(data),
-		"layer", da.layer,
-		"commitment", commitment[:8])
+	da.log.Debug("Stored blob")
 	
 	return ref, nil
 }

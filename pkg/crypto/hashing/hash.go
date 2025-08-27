@@ -40,3 +40,9 @@ func (h *Hasher) HashBytes(data []byte) []byte {
 	h.Write(data)
 	return h.Sum(nil)
 }
+
+// ComputeHash256 computes SHA256 hash and returns bytes
+func ComputeHash256(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	return hash[:]
+}
