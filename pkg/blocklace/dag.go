@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luxfi/adx/core"
+	"github.com/luxfi/adx/pkg/core"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"
 )

@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/luxfi/adx/core"
-	"github.com/luxfi/adx/crypto"
+	"github.com/luxfi/adx/pkg/core"
+	"github.com/luxfi/adx/pkg/crypto"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"
 )

@@ -1,6 +1,7 @@
 // Copyright (C) 2025, ADXYZ Inc. All rights reserved.
 // See the file LICENSE for licensing terms.
 
+// Package crypto provides unified cryptographic operations for ADX
 package crypto
 
 import (
@@ -21,7 +22,7 @@ var (
 )
 
 // HPKE implements Hybrid Public Key Encryption (RFC 9180)
-type HPKE struct {
+type HPKEImpl struct {
 	suite HPKESuite
 }
 
@@ -42,14 +43,14 @@ func DefaultSuite() HPKESuite {
 }
 
 // NewHPKE creates a new HPKE instance
-func NewHPKE() *HPKE {
-	return &HPKE{
+func NewHPKEImpl() *HPKEImpl {
+	return &HPKEImpl{
 		suite: DefaultSuite(),
 	}
 }
 
 // GenerateKeyPair generates an X25519 key pair
-func (h *HPKE) GenerateKeyPair() (publicKey, privateKey []byte, err error) {
+func (h *HPKEImpl) GenerateKeyPair() (publicKey, privateKey []byte, err error) {
 	privateKey = make([]byte, 32)
 	if _, err := rand.Read(privateKey); err != nil {
 		return nil, nil, err
@@ -70,7 +71,7 @@ type Encapsulation struct {
 }
 
 // Encapsulate generates an ephemeral key pair and shared secret
-func (h *HPKE) Encapsulate(recipientPublicKey []byte) (*Encapsulation, error) {
+func (h *HPKEImpl) Encapsulate(recipientPublicKey []byte) (*Encapsulation, error) {
 	if len(recipientPublicKey) != 32 {
 		return nil, ErrInvalidKeySize
 	}
@@ -106,7 +107,7 @@ func (h *HPKE) Encapsulate(recipientPublicKey []byte) (*Encapsulation, error) {
 }
 
 // Decapsulate recovers the shared secret from encapsulated key
-func (h *HPKE) Decapsulate(encapsulatedKey, privateKey []byte) ([]byte, error) {
+func (h *HPKEImpl) Decapsulate(encapsulatedKey, privateKey []byte) ([]byte, error) {
 	if len(encapsulatedKey) != 32 || len(privateKey) != 32 {
 		return nil, ErrInvalidKeySize
 	}
@@ -135,7 +136,7 @@ type SealedEnvelope struct {
 }
 
 // Seal encrypts a message for multiple recipients with AAD binding
-func (h *HPKE) Seal(plaintext []byte, recipientPublicKeys [][]byte, aad []byte) (*SealedEnvelope, error) {
+func (h *HPKEImpl) Seal(plaintext []byte, recipientPublicKeys [][]byte, aad []byte) (*SealedEnvelope, error) {
 	if len(recipientPublicKeys) == 0 {
 		return nil, errors.New("no recipients specified")
 	}
@@ -178,7 +179,7 @@ func (h *HPKE) Seal(plaintext []byte, recipientPublicKeys [][]byte, aad []byte) 
 }
 
 // Open decrypts a sealed envelope using the recipient's private key
-func (h *HPKE) Open(envelope *SealedEnvelope, recipientPrivateKey []byte, recipientIndex int) ([]byte, error) {
+func (h *HPKEImpl) Open(envelope *SealedEnvelope, recipientPrivateKey []byte, recipientIndex int) ([]byte, error) {
 	if recipientIndex >= len(envelope.Encapsulations) {
 		return nil, errors.New("invalid recipient index")
 	}
@@ -218,7 +219,7 @@ func (h *HPKE) Open(envelope *SealedEnvelope, recipientPrivateKey []byte, recipi
 }
 
 // encapsulateContentKey wraps a content key for a recipient
-func (h *HPKE) encapsulateContentKey(contentKey, recipientPublicKey []byte) (*Encapsulation, error) {
+func (h *HPKEImpl) encapsulateContentKey(contentKey, recipientPublicKey []byte) (*Encapsulation, error) {
 	// For simplicity, we're directly encrypting the content key
 	// In production, use proper KEM encapsulation
 	encap, err := h.Encapsulate(recipientPublicKey)

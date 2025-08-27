@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/luxfi/adx/auction"
-	"github.com/luxfi/adx/blocklace"
-	"github.com/luxfi/adx/core"
-	"github.com/luxfi/adx/crypto"
-	"github.com/luxfi/adx/da"
+	"github.com/luxfi/adx/pkg/auction"
+	"github.com/luxfi/adx/pkg/blocklace"
+	"github.com/luxfi/adx/pkg/core"
+	"github.com/luxfi/adx/pkg/crypto"
+	"github.com/luxfi/adx/pkg/da"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"
-	"github.com/luxfi/adx/settlement"
-	"github.com/luxfi/adx/tee"
+	"github.com/luxfi/adx/pkg/settlement"
+	"github.com/luxfi/adx/pkg/tee"
 	"github.com/stretchr/testify/require"
 )
 

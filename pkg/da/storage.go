@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luxfi/adx/crypto"
+	"github.com/luxfi/adx/pkg/crypto"
 	"github.com/luxfi/adx/pkg/crypto/hashing"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"

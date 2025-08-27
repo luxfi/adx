@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	
-	"github.com/luxfi/adx/auction"
-	"github.com/luxfi/adx/core"
-	"github.com/luxfi/adx/crypto"
-	"github.com/luxfi/adx/settlement"
+	"github.com/luxfi/adx/pkg/auction"
+	"github.com/luxfi/adx/pkg/core"
+	"github.com/luxfi/adx/pkg/crypto"
+	"github.com/luxfi/adx/pkg/settlement"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"
 )
