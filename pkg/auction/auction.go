@@ -147,7 +147,7 @@ type DecryptedBid struct {
 }
 
 // decryptBid decrypts a sealed bid (in production, done in TEE)
-func (a *Auction) decryptBid(sealed *SealedBid, key []byte, hpke *crypto.HPKE) (*DecryptedBid, error) {
+func (a *Auction) decryptBid(sealed *SealedBid, key []byte, hpke crypto.HPKE) (*DecryptedBid, error) {
 	// Simplified decryption - in production use proper HPKE
 	// This would be done inside a TEE to keep bids private
 	

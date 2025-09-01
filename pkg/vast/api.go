@@ -10,7 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 )
 
 // VASTRequest represents the complete VAST API request parameters
@@ -120,11 +119,11 @@ type VASTRequest struct {
 
 // VASTHandler handles VAST API requests with full parameter support
 type VASTHandler struct {
-	Exchange      *RTBExchange
+	Exchange      RTBExchange
 	Storage       StorageBackend
-	Analytics     *AnalyticsEngine
-	PrivacyMgr    *PrivacyManager
-	BlockchainMgr *BlockchainManager
+	Analytics     AnalyticsEngine
+	PrivacyMgr    PrivacyManager
+	BlockchainMgr BlockchainManager
 }
 
 // HandleVASTRequest processes VAST API requests
@@ -183,20 +182,20 @@ func (h *VASTHandler) HandleVASTRequest(c *gin.Context) {
 func (h *VASTHandler) buildOpenRTBRequest(req *VASTRequest) *OpenRTBRequest {
 	rtb := &OpenRTBRequest{
 		ID:     uuid.New().String(),
-		Imp:    []Impression{},
+		Imp:    []OpenRTBImpression{},
 		Device: Device{},
 		User:   User{},
-		App:    App{},
+		App:    &App{},
 		Regs:   Regs{},
 		Source: Source{},
 	}
 
 	// Build impression
-	imp := Impression{
-		ID:       "1",
-		Video:    &Video{},
-		Secure:   req.Secure,
-		BidFloor: 0.01, // Default floor
+	imp := OpenRTBImpression{
+		ID:          "1",
+		Video:       &Video{},
+		Secure:      req.Secure,
+		BidFloor:    0.01, // Default floor
 		BidFloorCur: "USD",
 	}
 
@@ -310,7 +309,7 @@ func (h *VASTHandler) buildOpenRTBRequest(req *VASTRequest) *OpenRTBRequest {
 	}
 
 	// App information
-	rtb.App = App{
+	rtb.App = &App{
 		ID:       req.AppToken,
 		Bundle:   req.BundleID,
 		Ver:      req.AppVer,
@@ -712,4 +711,12 @@ type VASTError struct {
 	XMLName xml.Name `xml:"Error"`
 	Code    int      `xml:"code,attr"`
 	Message string   `xml:",chardata"`
+}
+
+// boolToInt converts bool to int for OpenRTB
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

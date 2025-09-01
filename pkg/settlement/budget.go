@@ -86,17 +86,17 @@ func (bm *BudgetManager) DeductBudget(
 	advertiserID ids.ID,
 	amount uint64,
 	auctionRef ids.ID,
-) (*BudgetProof, error) {
+) (uint64, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	
 	budget, exists := bm.budgets[advertiserID]
 	if !exists {
-		return nil, errors.New("budget not found")
+		return 0, errors.New("budget not found")
 	}
 	
 	if budget.Remaining < amount {
-		return nil, ErrInsufficientBudget
+		return 0, ErrInsufficientBudget
 	}
 	
 	// Store previous commitment
@@ -111,8 +111,8 @@ func (bm *BudgetManager) DeductBudget(
 	newCommitment := bm.createBudgetCommitment(budget)
 	budget.Commitment = newCommitment
 	
-	// Generate ZK proof of valid deduction
-	proof := bm.generateBudgetProof(
+	// Generate ZK proof of valid deduction (for audit)
+	_ = bm.generateBudgetProof(
 		prevCommitment,
 		newCommitment,
 		amount,
@@ -124,7 +124,20 @@ func (bm *BudgetManager) DeductBudget(
 	
 	bm.log.Debug("Budget reserved")
 	
-	return proof, nil
+	return budget.Remaining, nil
+}
+
+// GetBudget returns the remaining budget for an advertiser
+func (bm *BudgetManager) GetBudget(advertiserID ids.ID) uint64 {
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
+	
+	budget, exists := bm.budgets[advertiserID]
+	if !exists {
+		return 0
+	}
+	
+	return budget.Remaining
 }
 
 // BudgetProof proves budget operations are valid

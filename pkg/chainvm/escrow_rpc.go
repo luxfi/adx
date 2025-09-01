@@ -3,7 +3,6 @@ package chainvm
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"time"
 

@@ -1,8 +1,8 @@
 package vast
 
 import (
+	"context"
 	"time"
-	"encoding/xml"
 )
 
 // Additional VAST types not in vast.go
@@ -173,7 +173,7 @@ type CustomTrackingEvent struct {
 // OpenRTBRequest represents an OpenRTB 2.5/3.0 bid request
 type OpenRTBRequest struct {
 	ID      string      `json:"id"`
-	Imp     []Impression `json:"imp"`
+	Imp     []OpenRTBImpression `json:"imp"`
 	Site    *Site       `json:"site,omitempty"`
 	App     *App        `json:"app,omitempty"`
 	Device  Device      `json:"device"`
@@ -512,6 +512,86 @@ type Regs struct {
 	GDPR  int         `json:"gdpr,omitempty"`
 	CCPA  string      `json:"us_privacy,omitempty"`
 	Ext   interface{} `json:"ext,omitempty"`
+}
+
+// Metric object
+type Metric struct {
+	Type   string      `json:"type"`
+	Value  float64     `json:"value"`
+	Vendor string      `json:"vendor,omitempty"`
+	Ext    interface{} `json:"ext,omitempty"`
+}
+
+// Audio object
+type Audio struct {
+	MIMEs        []string    `json:"mimes"`
+	MinDuration  int         `json:"minduration,omitempty"`
+	MaxDuration  int         `json:"maxduration,omitempty"`
+	Protocols    []int       `json:"protocols,omitempty"`
+	StartDelay   int         `json:"startdelay,omitempty"`
+	Sequence     int         `json:"sequence,omitempty"`
+	BAttr        []int       `json:"battr,omitempty"`
+	MaxExtended  int         `json:"maxextended,omitempty"`
+	MinBitrate   int         `json:"minbitrate,omitempty"`
+	MaxBitrate   int         `json:"maxbitrate,omitempty"`
+	Delivery     []int       `json:"delivery,omitempty"`
+	CompanionAd  []Banner    `json:"companionad,omitempty"`
+	API          []int       `json:"api,omitempty"`
+	CompanionType []int      `json:"companiontype,omitempty"`
+	MaxSeq       int         `json:"maxseq,omitempty"`
+	Feed         int         `json:"feed,omitempty"`
+	Stitched     int         `json:"stitched,omitempty"`
+	NVol         int         `json:"nvol,omitempty"`
+	Ext          interface{} `json:"ext,omitempty"`
+}
+
+// Native object
+type Native struct {
+	Request string      `json:"request"`
+	Ver     string      `json:"ver,omitempty"`
+	API     []int       `json:"api,omitempty"`
+	BAttr   []int       `json:"battr,omitempty"`
+	Ext     interface{} `json:"ext,omitempty"`
+}
+
+// PMP (Private Marketplace) object
+type PMP struct {
+	PrivateAuction int         `json:"private_auction,omitempty"`
+	Deals          []Deal      `json:"deals,omitempty"`
+	Ext            interface{} `json:"ext,omitempty"`
+}
+
+// Deal object
+type Deal struct {
+	ID          string      `json:"id"`
+	BidFloor    float64     `json:"bidfloor,omitempty"`
+	BidFloorCur string      `json:"bidfloorcur,omitempty"`
+	AT          int         `json:"at,omitempty"`
+	WSeat       []string    `json:"wseat,omitempty"`
+	WAdvDomains []string    `json:"wadomain,omitempty"`
+	Ext         interface{} `json:"ext,omitempty"`
+}
+
+// OpenRTBImpression for bid requests
+type OpenRTBImpression struct {
+	ID          string      `json:"id"`
+	Metric      []Metric    `json:"metric,omitempty"`
+	Banner      *Banner     `json:"banner,omitempty"`
+	Video       *Video      `json:"video,omitempty"`
+	Audio       *Audio      `json:"audio,omitempty"`
+	Native      *Native     `json:"native,omitempty"`
+	PMP         *PMP        `json:"pmp,omitempty"`
+	DisplayManager string   `json:"displaymanager,omitempty"`
+	DisplayManagerVer string `json:"displaymanagerver,omitempty"`
+	Instl       int         `json:"instl,omitempty"`
+	TagID       string      `json:"tagid,omitempty"`
+	BidFloor    float64     `json:"bidfloor,omitempty"`
+	BidFloorCur string      `json:"bidfloorcur,omitempty"`
+	ClickBrowser int        `json:"clickbrowser,omitempty"`
+	Secure      int         `json:"secure,omitempty"`
+	IframeBuster []string   `json:"iframebuster,omitempty"`
+	Exp         int         `json:"exp,omitempty"`
+	Ext         interface{} `json:"ext,omitempty"`
 }
 
 // Storage and Analytics types

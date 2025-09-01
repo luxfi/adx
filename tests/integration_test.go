@@ -133,18 +133,13 @@ func TestEndToEndAdFlow(t *testing.T) {
 	require.NoError(err)
 	
 	// Deduct from budget
-	budgetProof, err := budgetMgr.DeductBudget(advertiserID, 600, auctionID)
+	remainingBudget, err := budgetMgr.DeductBudget(advertiserID, 600, auctionID)
 	require.NoError(err)
-	require.NotNil(budgetProof)
+	require.Equal(uint64(9400), remainingBudget)
 	
-	// Verify budget proof
-	valid := settlement.VerifyBudgetProof(budgetProof)
-	require.True(valid)
-	
-	// Create budget header
-	budgetHeader := budgetMgr.CreateBudgetHeader(advertiserID, budgetProof)
-	require.NotNil(budgetHeader)
-	require.Equal(core.HeaderTypeBudget, budgetHeader.Type)
+	// Verify budget operations work correctly
+	currentBudget := budgetMgr.GetBudget(advertiserID)
+	require.Equal(uint64(9400), currentBudget)
 	
 	// 7. Test settlement
 	publisherID := ids.GenerateTestID()

@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	ErrInvalidKeySize = errors.New("invalid key size")
 	ErrDecryptionFailed = errors.New("decryption failed")
 )
 
@@ -64,11 +63,6 @@ func (h *HPKEImpl) GenerateKeyPair() (publicKey, privateKey []byte, err error) {
 	return publicKey, privateKey, nil
 }
 
-// Encapsulation represents the encapsulated key and shared secret
-type Encapsulation struct {
-	EncapsulatedKey []byte
-	SharedSecret    []byte
-}
 
 // Encapsulate generates an ephemeral key pair and shared secret
 func (h *HPKEImpl) Encapsulate(recipientPublicKey []byte) (*Encapsulation, error) {
@@ -244,4 +238,46 @@ func CreateCommitmentHPKE(data []byte) []byte {
 	// Use SHA256 for commitment
 	h := sha256.Sum256(data)
 	return h[:]
+}
+
+// SealSimple encrypts and authenticates plaintext for a single recipient
+func (h *HPKEImpl) SealSimple(sharedSecret, plaintext, aad []byte) ([]byte, error) {
+	// Use ChaCha20-Poly1305 AEAD
+	aead, err := chacha20poly1305.New(sharedSecret[:32])
+	if err != nil {
+		return nil, err
+	}
+	
+	// Generate nonce
+	nonce := make([]byte, aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	
+	// Encrypt and authenticate
+	ciphertext := aead.Seal(nonce, nonce, plaintext, aad)
+	return ciphertext, nil
+}
+
+// OpenSimple decrypts and verifies ciphertext
+func (h *HPKEImpl) OpenSimple(sharedSecret, ciphertext, aad []byte) ([]byte, error) {
+	// Use ChaCha20-Poly1305 AEAD
+	aead, err := chacha20poly1305.New(sharedSecret[:32])
+	if err != nil {
+		return nil, err
+	}
+	
+	if len(ciphertext) < aead.NonceSize() {
+		return nil, ErrDecryptionFailed
+	}
+	
+	nonce := ciphertext[:aead.NonceSize()]
+	actualCiphertext := ciphertext[aead.NonceSize():]
+	
+	plaintext, err := aead.Open(nil, nonce, actualCiphertext, aad)
+	if err != nil {
+		return nil, ErrDecryptionFailed
+	}
+	
+	return plaintext, nil
 }

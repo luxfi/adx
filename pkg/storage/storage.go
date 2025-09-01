@@ -6,7 +6,6 @@ package storage
 import (
 	"github.com/luxfi/database"
 	"github.com/luxfi/database/badgerdb"
-	"github.com/luxfi/database/factory"
 	"github.com/luxfi/database/memdb"
 )
 
@@ -24,17 +23,13 @@ func NewStorage(dbType string, path string) (*Storage, error) {
 	case "memory":
 		db = memdb.New()
 	case "badger":
-		db, err = badgerdb.New(path, nil)
+		db, err = badgerdb.New(path, nil, "", nil)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		// Use factory with config
-		config := factory.Config{
-			Type: factory.BadgerDB,
-			Path: path,
-		}
-		db, err = factory.Open(config)
+		// Default to badger
+		db, err = badgerdb.New(path, nil, "", nil)
 		if err != nil {
 			return nil, err
 		}

@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 
 	luxcrypto "github.com/luxfi/crypto"
 	"golang.org/x/crypto/hkdf"
@@ -21,7 +20,7 @@ type Core struct {
 // NewCore creates a new Core crypto instance
 func NewCore() *Core {
 	return &Core{
-		hpke: NewHPKE(),
+		hpke: NewHPKEImpl(),
 	}
 }
 
@@ -85,7 +84,7 @@ func (c *Core) EncryptWithHPKE(recipientPublicKey, plaintext []byte) ([]byte, er
 		return nil, err
 	}
 	
-	ciphertext, err := c.hpke.Seal(encap.SharedSecret, plaintext, nil)
+	ciphertext, err := c.hpke.SealSimple(encap.SharedSecret, plaintext, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +108,7 @@ func (c *Core) DecryptWithHPKE(privateKey, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 	
-	plaintext, err := c.hpke.Open(sharedSecret, actualCiphertext, nil)
+	plaintext, err := c.hpke.OpenSimple(sharedSecret, actualCiphertext, nil)
 	if err != nil {
 		return nil, err
 	}

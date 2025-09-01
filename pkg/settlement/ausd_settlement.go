@@ -228,7 +228,8 @@ func (s *AUSDSettlement) CreateProgrammaticGuaranteed(ctx context.Context, req *
 	totalCost := decimal.NewFromInt(int64(req.TotalImpressions)).
 		Mul(req.FixedCPM).Div(decimal.NewFromInt(1000))
 	penaltyBuffer := totalCost.Mul(req.PenaltyRate) // e.g., 10-20%
-	escrowAmount := totalCost.Add(penaltyBuffer)
+	// escrowAmount would be used here to reserve funds
+	_ = totalCost.Add(penaltyBuffer) // escrowAmount
 
 	pgReq := &chainvm.CreatePGDealRequest{
 		CampaignID:       req.CampaignID,

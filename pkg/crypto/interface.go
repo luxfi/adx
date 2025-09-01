@@ -55,10 +55,6 @@ type HPKE interface {
 	Encapsulate(recipientPublicKey []byte) (*Encapsulation, error)
 	// Decapsulate recovers shared secret from encapsulated key
 	Decapsulate(encapsulatedKey, privateKey []byte) ([]byte, error)
-	// Seal encrypts and authenticates plaintext
-	Seal(sharedSecret, plaintext, aad []byte) ([]byte, error)
-	// Open decrypts and verifies ciphertext
-	Open(sharedSecret, ciphertext, aad []byte) ([]byte, error)
 }
 
 // Encapsulation contains the encapsulated key and shared secret

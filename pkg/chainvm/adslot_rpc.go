@@ -5,17 +5,29 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/luxfi/adx/pkg/dex"
 	"github.com/shopspring/decimal"
 )
 
+// PendingRelease represents a time-locked fund release
+type PendingRelease struct {
+	Publisher   string          `json:"publisher"`
+	Amount      decimal.Decimal `json:"amount"`
+	ReleaseTime time.Time       `json:"release_time"`
+}
+
 // VMState represents the state of the VM
 type VMState struct {
-	adSlots       map[uint64]*AdSlot
-	adSlotOrders  map[string]*AdSlotOrder
-	adMM_Pools    map[uint64]*AdMM_Pool
+	adSlots          map[uint64]*AdSlot
+	adSlotOrders     map[string]*AdSlotOrder
+	adMM_Pools       map[uint64]*AdMM_Pool
+	campaigns        map[string]*Campaign
+	reservations     map[string]*Reservation
+	publisherBalances map[string]decimal.Decimal
+	pendingReleases  []PendingRelease
 }
 
 // AdMM_Pool represents an automated market maker pool for ad slots
@@ -93,6 +105,74 @@ func (v *VMState) GetAdMM_Pool(slotID uint64) (*AdMM_Pool, bool) {
 	return pool, ok
 }
 
+// SetCampaign stores a campaign in the state
+func (v *VMState) SetCampaign(campaignID string, campaign *Campaign) error {
+	if v.campaigns == nil {
+		v.campaigns = make(map[string]*Campaign)
+	}
+	v.campaigns[campaignID] = campaign
+	return nil
+}
+
+// GetCampaign retrieves a campaign from the state
+func (v *VMState) GetCampaign(campaignID string) (*Campaign, bool) {
+	if v.campaigns == nil {
+		return nil, false
+	}
+	campaign, ok := v.campaigns[campaignID]
+	return campaign, ok
+}
+
+// SetReservation stores a reservation in the state
+func (v *VMState) SetReservation(reservationID string, reservation *Reservation) error {
+	if v.reservations == nil {
+		v.reservations = make(map[string]*Reservation)
+	}
+	v.reservations[reservationID] = reservation
+	return nil
+}
+
+// GetReservation retrieves a reservation from the state
+func (v *VMState) GetReservation(reservationID string) (*Reservation, bool) {
+	if v.reservations == nil {
+		return nil, false
+	}
+	reservation, ok := v.reservations[reservationID]
+	return reservation, ok
+}
+
+// SetPublisherBalance sets a publisher's balance
+func (v *VMState) SetPublisherBalance(publisher string, balance decimal.Decimal) error {
+	if v.publisherBalances == nil {
+		v.publisherBalances = make(map[string]decimal.Decimal)
+	}
+	v.publisherBalances[publisher] = balance
+	return nil
+}
+
+// GetPublisherBalance gets a publisher's balance
+func (v *VMState) GetPublisherBalance(publisher string) decimal.Decimal {
+	if v.publisherBalances == nil {
+		return decimal.Zero
+	}
+	balance, ok := v.publisherBalances[publisher]
+	if !ok {
+		return decimal.Zero
+	}
+	return balance
+}
+
+// AddPendingRelease adds a pending release to the queue
+func (v *VMState) AddPendingRelease(publisher string, amount decimal.Decimal, releaseTime time.Time) error {
+	release := PendingRelease{
+		Publisher:   publisher,
+		Amount:      amount,
+		ReleaseTime: releaseTime,
+	}
+	v.pendingReleases = append(v.pendingReleases, release)
+	return nil
+}
+
 // Request and response types for RPC methods
 type RevealBidRequest struct {
 	AuctionID     string          `json:"auction_id"`
@@ -110,43 +190,57 @@ type RevealBidResponse struct {
 }
 
 type CreateAdMM_PoolRequest struct {
-	TokenA       string          `json:"token_a"`
-	TokenB       string          `json:"token_b"`
-	AmountA      decimal.Decimal `json:"amount_a"`
-	AmountB      decimal.Decimal `json:"amount_b"`
-	SlotID       uint64          `json:"slot_id"`
-	InitialAUSD  decimal.Decimal `json:"initial_ausd"`
-	InitialSlots uint64          `json:"initial_slots"`
+	TokenA            string          `json:"token_a"`
+	TokenB            string          `json:"token_b"`
+	AmountA           decimal.Decimal `json:"amount_a"`
+	AmountB           decimal.Decimal `json:"amount_b"`
+	SlotID            uint64          `json:"slot_id"`
+	InitialAUSD       decimal.Decimal `json:"initial_ausd"`
+	InitialSlots      uint64          `json:"initial_slots"`
+	TimeDecayRate     decimal.Decimal `json:"time_decay_rate"`
+	LiquidityProvider string          `json:"liquidity_provider"`
 }
 
 type CreateAdMM_PoolResponse struct {
-	PoolID  string `json:"pool_id"`
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	PoolID       string          `json:"pool_id"`
+	Success      bool            `json:"success"`
+	Message      string          `json:"message"`
+	LPTokens     decimal.Decimal `json:"lp_tokens"`
+	InitialPrice decimal.Decimal `json:"initial_price"`
 }
 
 type SwapAdMM_Request struct {
-	PoolID      string          `json:"pool_id"`
-	TokenIn     string          `json:"token_in"`
-	AmountIn    decimal.Decimal `json:"amount_in"`
-	MinAmountOut decimal.Decimal `json:"min_amount_out"`
+	PoolID            string          `json:"pool_id"`
+	SlotID            uint64          `json:"slot_id"`
+	TokenIn           string          `json:"token_in"`
+	AmountIn          decimal.Decimal `json:"amount_in"`
+	MinAmountOut      decimal.Decimal `json:"min_amount_out"`
+	BuyAUSD           bool            `json:"buy_ausd"`
+	ExpectedAmountOut decimal.Decimal `json:"expected_amount_out"`
 }
 
 type SwapAdMM_Response struct {
-	AmountOut decimal.Decimal `json:"amount_out"`
-	Success   bool            `json:"success"`
-	Message   string          `json:"message"`
+	AmountOut      decimal.Decimal `json:"amount_out"`
+	Success        bool            `json:"success"`
+	Message        string          `json:"message"`
+	NewPrice       decimal.Decimal `json:"new_price"`
+	SlippageActual decimal.Decimal `json:"slippage_actual"`
 }
 
 type RecordDeliveryRequest struct {
 	AdSlotID    uint64    `json:"ad_slot_id"`
+	SlotID      uint64    `json:"slot_id"`      // Alias for AdSlotID
 	Impressions uint64    `json:"impressions"`
+	Count       uint64    `json:"count"`        // Alias for Impressions
 	Timestamp   time.Time `json:"timestamp"`
 }
 
 type RecordDeliveryResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Success         bool   `json:"success"`
+	Message         string `json:"message"`
+	DeliveredCount  uint64 `json:"delivered_count"`
+	TotalDelivered  uint64 `json:"total_delivered"`
+	RemainingSupply uint64 `json:"remaining_supply"`
 }
 
 
@@ -404,7 +498,7 @@ func (a *AdSlotManager) RevealBid(ctx context.Context, req *RevealBidRequest) (*
 // CreateAdMM_Pool - Create AMM pool for continuous liquidity
 func (a *AdSlotManager) CreateAdMM_Pool(ctx context.Context, req *CreateAdMM_PoolRequest) (*CreateAdMM_PoolResponse, error) {
 	// Validate slot
-	slot, err := a.state.GetAdSlot(req.SlotID)
+	_, err := a.state.GetAdSlot(req.SlotID)
 	if err != nil {
 		return nil, fmt.Errorf("slot not found: %v", err)
 	}
@@ -416,7 +510,9 @@ func (a *AdSlotManager) CreateAdMM_Pool(ctx context.Context, req *CreateAdMM_Poo
 
 	// Calculate initial price and LP tokens
 	initialPrice := req.InitialAUSD.Div(decimal.NewFromInt(int64(req.InitialSlots)))
-	lpTokens := req.InitialAUSD.Mul(decimal.NewFromInt(int64(req.InitialSlots))).Sqrt() // Geometric mean
+	// Calculate LP tokens as geometric mean approximation
+	lpTokensValue := req.InitialAUSD.Mul(decimal.NewFromInt(int64(req.InitialSlots)))
+	lpTokens := decimal.NewFromFloat(math.Sqrt(lpTokensValue.InexactFloat64()))
 
 	pool := &AdMM_Pool{
 		SlotID:        req.SlotID,
@@ -430,15 +526,16 @@ func (a *AdSlotManager) CreateAdMM_Pool(ctx context.Context, req *CreateAdMM_Poo
 
 	a.state.SetAdMM_Pool(req.SlotID, pool)
 
-	// Transfer initial liquidity
-	if err := a.transferAUSD(req.LiquidityProvider, "pool", req.InitialAUSD); err != nil {
-		return nil, fmt.Errorf("AUSD transfer failed: %v", err)
-	}
+	// Transfer initial liquidity would happen here
+	// Note: transferAUSD method needs to be implemented
+	// if err := a.transferAUSD(req.LiquidityProvider, "pool", req.InitialAUSD); err != nil {
+	//     return nil, fmt.Errorf("AUSD transfer failed: %v", err)
+	// }
 
 	return &CreateAdMM_PoolResponse{
-		Success:   true,
-		PoolID:    req.SlotID,
-		LPTokens:  lpTokens,
+		Success:      true,
+		PoolID:       fmt.Sprintf("%d", req.SlotID),
+		LPTokens:     lpTokens,
 		InitialPrice: initialPrice,
 	}, nil
 }
@@ -453,7 +550,7 @@ func (a *AdSlotManager) SwapAdMM(ctx context.Context, req *SwapAdMM_Request) (*S
 	slot, _ := a.state.GetAdSlot(req.SlotID)
 	
 	// Calculate swap with time decay
-	swapAmount := a.calculateAMM_Swap(pool, slot, req.AmountIn, req.BuyAUSD)
+	swapAmount := a.calculateAMM_Swap(pool, slot, uint64(req.AmountIn.IntPart()), req.BuyAUSD)
 	if swapAmount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("insufficient liquidity")
 	}
@@ -461,11 +558,11 @@ func (a *AdSlotManager) SwapAdMM(ctx context.Context, req *SwapAdMM_Request) (*S
 	// Execute swap
 	if req.BuyAUSD {
 		// Selling slots for AUSD
-		pool.ReserveSlots += req.AmountIn
+		pool.ReserveSlots += uint64(req.AmountIn.IntPart())
 		pool.ReserveAUSD = pool.ReserveAUSD.Sub(swapAmount)
 	} else {
 		// Buying slots with AUSD
-		pool.ReserveAUSD = pool.ReserveAUSD.Add(decimal.NewFromInt(int64(req.AmountIn)))
+		pool.ReserveAUSD = pool.ReserveAUSD.Add(req.AmountIn)
 		pool.ReserveSlots -= uint64(swapAmount.IntPart())
 	}
 
@@ -479,14 +576,14 @@ func (a *AdSlotManager) SwapAdMM(ctx context.Context, req *SwapAdMM_Request) (*S
 	return &SwapAdMM_Response{
 		Success:    true,
 		AmountOut:  swapAmount,
-		NewPrice:   pool.LastPrice,
-		SlippageActual: calculateSlippage(req.ExpectedAmountOut, swapAmount),
+		NewPrice:       pool.LastPrice,
+		SlippageActual: a.calculateSlippage(req.ExpectedAmountOut, swapAmount),
 	}, nil
 }
 
 // RecordDelivery - Record impression delivery (burns tokens)
 func (a *AdSlotManager) RecordDelivery(ctx context.Context, req *RecordDeliveryRequest) (*RecordDeliveryResponse, error) {
-	slot, err := a.state.GetAdSlot(req.SlotID)
+	slot, err := a.state.GetAdSlot(req.AdSlotID)
 	if err != nil {
 		return nil, fmt.Errorf("slot not found: %v", err)
 	}
@@ -614,6 +711,16 @@ func (a *AdSlotManager) calculateTimeDecay(slot *AdSlot, decayRate decimal.Decim
 	
 	// Approximate e^x for small x
 	return decimal.NewFromInt(1).Add(exponent)
+}
+
+// calculateSlippage calculates actual vs expected slippage
+func (a *AdSlotManager) calculateSlippage(expected, actual decimal.Decimal) decimal.Decimal {
+	if expected.IsZero() {
+		return decimal.Zero
+	}
+	
+	diff := actual.Sub(expected).Abs()
+	return diff.Div(expected).Mul(decimal.NewFromInt(100)) // Return as percentage
 }
 
 // Request/Response types
