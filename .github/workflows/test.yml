@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go: ['1.21', '1.22']
+        go: ['1.25.5']
         cgo: ['0', '1']
         exclude:
           # Skip CGO on macOS runners (no Metal in CI)
@@ -49,7 +49,7 @@ jobs:
         go test -v -race -coverprofile=coverage.txt -covermode=atomic ./pkg/lx/... ./pkg/mlx/... ./test/unit/... || true
     
     - name: Upload coverage
-      if: matrix.cgo == '0' && matrix.go == '1.21'
+      if: matrix.cgo == '0' && matrix.go == '1.25.5'
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.txt
@@ -73,8 +73,8 @@ jobs:
     
     - name: Install Go
       run: |
-        wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
-        tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
+        wget https://go.dev/dl/go1.25.5.linux-amd64.tar.gz
+        tar -C /usr/local -xzf go1.25.5.linux-amd64.tar.gz
         echo 'export PATH=$PATH:/usr/local/go/bin' >> $GITHUB_ENV
     
     - name: Check CUDA
@@ -113,7 +113,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.25.5'
     
     - name: Run all benchmarks
       run: |
@@ -153,7 +153,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.25.5'
     
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
