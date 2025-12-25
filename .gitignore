@@ -80,9 +80,13 @@ __pycache__/
 # Documentation
 docs/_build/
 docs/site/
-LLM.md
+
+ui
+
+
+
 AGENTS.md
 CLAUDE.md
 GEMINI.md
-
-ui
+GROK.md
+QWEN.md
