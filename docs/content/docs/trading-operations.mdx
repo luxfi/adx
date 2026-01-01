@@ -1,0 +1,683 @@
+---
+title: Trading Operations
+description: Complete guide to ADX trading operations and market mechanics
+---
+
+# Trading Operations
+
+ADX provides comprehensive trading operations for decentralized advertising exchanges, combining high-frequency trading capabilities with cryptographic security.
+
+## Trading Overview
+
+ADX trading operations encompass:
+- **Real-time bidding** with sub-100ms latency
+- **Order book management** for limit orders
+- **Market making** with automated strategies
+- **Arbitrage detection** and prevention
+- **Settlement automation** with atomic execution
+
+## Order Types
+
+### Market Orders
+
+Immediate execution at best available price:
+
+```go
+type MarketOrder struct {
+    OrderID    string
+    AssetID    string
+    Side       OrderSide // BUY or SELL
+    Quantity   decimal.Decimal
+    Timestamp  time.Time
+}
+
+func ExecuteMarketOrder(order *MarketOrder) (*Execution, error) {
+    // Find best price in order book
+    bestPrice := orderBook.GetBestPrice(order.Side)
+
+    // Execute immediately
+    return executeAt(order, bestPrice)
+}
+```
+
+### Limit Orders
+
+Execution at specified price or better:
+
+```go
+type LimitOrder struct {
+    OrderID    string
+    AssetID    string
+    Side       OrderSide
+    Price      decimal.Decimal
+    Quantity   decimal.Decimal
+    TimeInForce TimeInForce // IOC, FOK, GTC
+    Expiry     time.Time
+}
+
+func PlaceLimitOrder(order *LimitOrder) error {
+    // Check for immediate match
+    if canExecute := orderBook.CheckMatch(order); canExecute {
+        return executeOrder(order)
+    }
+
+    // Add to order book
+    return orderBook.AddOrder(order)
+}
+```
+
+### Stop Orders
+
+Triggered when price reaches threshold:
+
+```go
+type StopOrder struct {
+    OrderID      string
+    TriggerPrice decimal.Decimal
+    OrderType    OrderType // MARKET or LIMIT
+    Order        interface{} // Underlying order
+}
+
+func MonitorStopOrder(stop *StopOrder) {
+    priceMonitor.Subscribe(stop.AssetID, func(price decimal.Decimal) {
+        if stop.shouldTrigger(price) {
+            activateOrder(stop.Order)
+        }
+    })
+}
+```
+
+## Order Book Management
+
+### Matching Engine
+
+High-performance order matching:
+
+```go
+type MatchingEngine struct {
+    buyOrders  *OrderTree  // Price-time priority
+    sellOrders *OrderTree  // Price-time priority
+    lastPrice  decimal.Decimal
+    volume24h  decimal.Decimal
+}
+
+func (m *MatchingEngine) Match() []*Trade {
+    trades := []*Trade{}
+
+    for {
+        // Get best bid and ask
+        bestBid := m.buyOrders.GetBest()
+        bestAsk := m.sellOrders.GetBest()
+
+        // Check for match
+        if bestBid == nil || bestAsk == nil {
+            break
+        }
+
+        if bestBid.Price.GreaterThanOrEqual(bestAsk.Price) {
+            // Execute trade
+            trade := m.executeTrade(bestBid, bestAsk)
+            trades = append(trades, trade)
+
+            // Update last price
+            m.lastPrice = trade.Price
+        } else {
+            break
+        }
+    }
+
+    return trades
+}
+```
+
+### Order Priority
+
+Price-time priority implementation:
+
+```go
+type OrderTree struct {
+    priceMap  map[string]*PriceLevel
+    priceList *rbtree.Tree // Red-black tree for sorted prices
+}
+
+type PriceLevel struct {
+    price  decimal.Decimal
+    orders *list.List // FIFO queue at price level
+    volume decimal.Decimal
+}
+
+func (ot *OrderTree) Insert(order *Order) {
+    priceKey := order.Price.String()
+
+    level, exists := ot.priceMap[priceKey]
+    if !exists {
+        level = &PriceLevel{
+            price:  order.Price,
+            orders: list.New(),
+        }
+        ot.priceMap[priceKey] = level
+        ot.priceList.Insert(order.Price)
+    }
+
+    level.orders.PushBack(order)
+    level.volume = level.volume.Add(order.Quantity)
+}
+```
+
+## Market Making
+
+### Automated Market Maker (AMM)
+
+```go
+type AMM struct {
+    reserveA   decimal.Decimal
+    reserveB   decimal.Decimal
+    k          decimal.Decimal // Constant product
+    fee        decimal.Decimal // Trading fee (e.g., 0.003 for 0.3%)
+}
+
+// Calculate output amount using constant product formula
+func (amm *AMM) GetOutputAmount(
+    inputAmount decimal.Decimal,
+    inputReserve decimal.Decimal,
+    outputReserve decimal.Decimal,
+) decimal.Decimal {
+    inputWithFee := inputAmount.Mul(
+        decimal.NewFromFloat(1).Sub(amm.fee),
+    )
+    numerator := inputWithFee.Mul(outputReserve)
+    denominator := inputReserve.Add(inputWithFee)
+
+    return numerator.Div(denominator)
+}
+
+// Execute swap
+func (amm *AMM) Swap(
+    inputAsset string,
+    inputAmount decimal.Decimal,
+) (*SwapResult, error) {
+    var outputAmount decimal.Decimal
+
+    if inputAsset == "A" {
+        outputAmount = amm.GetOutputAmount(
+            inputAmount,
+            amm.reserveA,
+            amm.reserveB,
+        )
+
+        // Update reserves
+        amm.reserveA = amm.reserveA.Add(inputAmount)
+        amm.reserveB = amm.reserveB.Sub(outputAmount)
+    } else {
+        outputAmount = amm.GetOutputAmount(
+            inputAmount,
+            amm.reserveB,
+            amm.reserveA,
+        )
+
+        // Update reserves
+        amm.reserveB = amm.reserveB.Add(inputAmount)
+        amm.reserveA = amm.reserveA.Sub(outputAmount)
+    }
+
+    // Maintain constant product
+    amm.k = amm.reserveA.Mul(amm.reserveB)
+
+    return &SwapResult{
+        InputAmount:  inputAmount,
+        OutputAmount: outputAmount,
+        NewPriceA:    amm.reserveB.Div(amm.reserveA),
+        NewPriceB:    amm.reserveA.Div(amm.reserveB),
+    }, nil
+}
+```
+
+### Liquidity Provision
+
+```go
+type LiquidityProvider struct {
+    poolID    string
+    provider  string
+    amountA   decimal.Decimal
+    amountB   decimal.Decimal
+    shares    decimal.Decimal
+}
+
+func AddLiquidity(
+    pool *AMM,
+    amountA decimal.Decimal,
+    amountB decimal.Decimal,
+) (*LiquidityResult, error) {
+    // Check ratio matches current reserves
+    currentRatio := pool.reserveA.Div(pool.reserveB)
+    providedRatio := amountA.Div(amountB)
+
+    if !currentRatio.Equal(providedRatio) {
+        return nil, ErrInvalidRatio
+    }
+
+    // Calculate LP tokens
+    totalSupply := pool.GetTotalSupply()
+    shares := amountA.Mul(totalSupply).Div(pool.reserveA)
+
+    // Update reserves
+    pool.reserveA = pool.reserveA.Add(amountA)
+    pool.reserveB = pool.reserveB.Add(amountB)
+    pool.k = pool.reserveA.Mul(pool.reserveB)
+
+    return &LiquidityResult{
+        SharesMinted: shares,
+        NewReserveA:  pool.reserveA,
+        NewReserveB:  pool.reserveB,
+    }, nil
+}
+```
+
+## Arbitrage Prevention
+
+### Time-Weighted Average Price (TWAP)
+
+```go
+type TWAPOracle struct {
+    observations []PriceObservation
+    windowSize   time.Duration
+}
+
+type PriceObservation struct {
+    timestamp time.Time
+    price     decimal.Decimal
+    volume    decimal.Decimal
+}
+
+func (t *TWAPOracle) GetTWAP() decimal.Decimal {
+    now := time.Now()
+    cutoff := now.Add(-t.windowSize)
+
+    var weightedSum, totalWeight decimal.Decimal
+
+    for i := 0; i < len(t.observations)-1; i++ {
+        obs := t.observations[i]
+        if obs.timestamp.Before(cutoff) {
+            continue
+        }
+
+        // Time weight
+        duration := t.observations[i+1].timestamp.Sub(obs.timestamp)
+        weight := decimal.NewFromFloat(duration.Seconds())
+
+        weightedSum = weightedSum.Add(obs.price.Mul(weight))
+        totalWeight = totalWeight.Add(weight)
+    }
+
+    return weightedSum.Div(totalWeight)
+}
+```
+
+### MEV Protection
+
+```go
+type MEVProtection struct {
+    sequencer    *FairSequencer
+    delayPeriod  time.Duration
+    commitReveal *CommitRevealAuction
+}
+
+// Commit-reveal pattern for order submission
+func (m *MEVProtection) SubmitOrder(order *Order) error {
+    // Phase 1: Commit
+    commitment := hash(order, nonce)
+    m.commitReveal.Commit(commitment)
+
+    // Phase 2: Wait for delay period
+    time.Sleep(m.delayPeriod)
+
+    // Phase 3: Reveal
+    return m.commitReveal.Reveal(order, nonce)
+}
+
+// Fair sequencing
+func (m *MEVProtection) SequenceOrders(orders []*Order) []*Order {
+    // Randomized order with VRF
+    vrf := m.sequencer.GenerateVRF()
+
+    // Sort by VRF output
+    sort.Slice(orders, func(i, j int) bool {
+        seedI := hash(orders[i].ID, vrf)
+        seedJ := hash(orders[j].ID, vrf)
+        return bytes.Compare(seedI, seedJ) < 0
+    })
+
+    return orders
+}
+```
+
+## Settlement Operations
+
+### Atomic Settlement
+
+```go
+type AtomicSettlement struct {
+    escrow   *EscrowContract
+    verifier *ProofVerifier
+}
+
+func (s *AtomicSettlement) SettleTrade(trade *Trade) error {
+    // Begin atomic transaction
+    tx := s.escrow.BeginTransaction()
+    defer tx.Rollback()
+
+    // Lock assets from both parties
+    if err := tx.LockAssets(trade.Buyer, trade.BuyAsset, trade.BuyAmount); err != nil {
+        return err
+    }
+
+    if err := tx.LockAssets(trade.Seller, trade.SellAsset, trade.SellAmount); err != nil {
+        return err
+    }
+
+    // Verify trade validity
+    proof := generateTradeProof(trade)
+    if !s.verifier.Verify(proof) {
+        return ErrInvalidTrade
+    }
+
+    // Execute atomic swap
+    tx.Transfer(trade.Buyer, trade.Seller, trade.BuyAsset, trade.BuyAmount)
+    tx.Transfer(trade.Seller, trade.Buyer, trade.SellAsset, trade.SellAmount)
+
+    // Commit transaction
+    return tx.Commit()
+}
+```
+
+### Batch Settlement
+
+```go
+func BatchSettle(trades []*Trade) error {
+    // Group trades by settlement cycle
+    batches := groupByCycle(trades)
+
+    for _, batch := range batches {
+        // Generate Merkle tree of trades
+        root := buildMerkleTree(batch)
+
+        // Create batch proof
+        proof := halo2.GenerateBatchProof(batch, root)
+
+        // Submit for consensus
+        if err := consensus.SubmitBatch(root, proof); err != nil {
+            return err
+        }
+
+        // Execute settlements in parallel
+        var wg sync.WaitGroup
+        errors := make(chan error, len(batch))
+
+        for _, trade := range batch {
+            wg.Add(1)
+            go func(t *Trade) {
+                defer wg.Done()
+                if err := settleTrade(t); err != nil {
+                    errors <- err
+                }
+            }(trade)
+        }
+
+        wg.Wait()
+        close(errors)
+
+        // Check for errors
+        for err := range errors {
+            if err != nil {
+                return err
+            }
+        }
+    }
+
+    return nil
+}
+```
+
+## Risk Management
+
+### Position Limits
+
+```go
+type RiskManager struct {
+    maxPositionSize  decimal.Decimal
+    maxLeverage      decimal.Decimal
+    marginRequirement decimal.Decimal
+}
+
+func (r *RiskManager) ValidateOrder(
+    account *Account,
+    order *Order,
+) error {
+    // Check position size
+    newPosition := account.GetPosition(order.AssetID).Add(order.Quantity)
+    if newPosition.GreaterThan(r.maxPositionSize) {
+        return ErrPositionTooLarge
+    }
+
+    // Check leverage
+    leverage := account.GetLeverage()
+    if leverage.GreaterThan(r.maxLeverage) {
+        return ErrExcessiveLeverage
+    }
+
+    // Check margin
+    requiredMargin := order.Quantity.Mul(order.Price).Mul(r.marginRequirement)
+    if account.AvailableMargin.LessThan(requiredMargin) {
+        return ErrInsufficientMargin
+    }
+
+    return nil
+}
+```
+
+### Circuit Breakers
+
+```go
+type CircuitBreaker struct {
+    priceThreshold   decimal.Decimal // e.g., 10% move
+    volumeThreshold  decimal.Decimal
+    cooldownPeriod   time.Duration
+    lastTrigger      time.Time
+}
+
+func (cb *CircuitBreaker) CheckTrigger(
+    currentPrice decimal.Decimal,
+    previousPrice decimal.Decimal,
+    volume decimal.Decimal,
+) bool {
+    // Check if in cooldown
+    if time.Since(cb.lastTrigger) < cb.cooldownPeriod {
+        return true // Still halted
+    }
+
+    // Check price movement
+    priceChange := currentPrice.Sub(previousPrice).Div(previousPrice).Abs()
+    if priceChange.GreaterThan(cb.priceThreshold) {
+        cb.Trigger()
+        return true
+    }
+
+    // Check volume spike
+    if volume.GreaterThan(cb.volumeThreshold) {
+        cb.Trigger()
+        return true
+    }
+
+    return false
+}
+
+func (cb *CircuitBreaker) Trigger() {
+    cb.lastTrigger = time.Now()
+
+    // Notify all connected systems
+    NotifyHalt(&HaltEvent{
+        Timestamp: cb.lastTrigger,
+        Duration:  cb.cooldownPeriod,
+        Reason:    "Circuit breaker triggered",
+    })
+}
+```
+
+## Performance Metrics
+
+### Trading Analytics
+
+```go
+type TradingMetrics struct {
+    Volume24h      decimal.Decimal
+    TradeCount24h  int64
+    AveragePrice   decimal.Decimal
+    VWAP           decimal.Decimal
+    Spread         decimal.Decimal
+    Slippage       decimal.Decimal
+}
+
+func CalculateMetrics(trades []*Trade) *TradingMetrics {
+    metrics := &TradingMetrics{}
+
+    cutoff := time.Now().Add(-24 * time.Hour)
+    var totalValue, totalVolume decimal.Decimal
+
+    for _, trade := range trades {
+        if trade.Timestamp.After(cutoff) {
+            metrics.Volume24h = metrics.Volume24h.Add(trade.Volume)
+            metrics.TradeCount24h++
+
+            value := trade.Price.Mul(trade.Volume)
+            totalValue = totalValue.Add(value)
+            totalVolume = totalVolume.Add(trade.Volume)
+        }
+    }
+
+    // Calculate VWAP
+    if totalVolume.GreaterThan(decimal.Zero) {
+        metrics.VWAP = totalValue.Div(totalVolume)
+    }
+
+    // Calculate spread
+    bestBid := orderBook.GetBestBid()
+    bestAsk := orderBook.GetBestAsk()
+    if bestBid != nil && bestAsk != nil {
+        metrics.Spread = bestAsk.Price.Sub(bestBid.Price)
+    }
+
+    return metrics
+}
+```
+
+### Market Depth
+
+```go
+type MarketDepth struct {
+    Bids []PriceLevel
+    Asks []PriceLevel
+}
+
+func GetMarketDepth(levels int) *MarketDepth {
+    depth := &MarketDepth{
+        Bids: make([]PriceLevel, 0, levels),
+        Asks: make([]PriceLevel, 0, levels),
+    }
+
+    // Get bid levels
+    bidPrices := orderBook.GetBidPrices(levels)
+    for _, price := range bidPrices {
+        depth.Bids = append(depth.Bids, PriceLevel{
+            Price:  price,
+            Volume: orderBook.GetVolumeAt(price, BUY),
+            Count:  orderBook.GetOrderCount(price, BUY),
+        })
+    }
+
+    // Get ask levels
+    askPrices := orderBook.GetAskPrices(levels)
+    for _, price := range askPrices {
+        depth.Asks = append(depth.Asks, PriceLevel{
+            Price:  price,
+            Volume: orderBook.GetVolumeAt(price, SELL),
+            Count:  orderBook.GetOrderCount(price, SELL),
+        })
+    }
+
+    return depth
+}
+```
+
+## API Endpoints
+
+### REST API
+
+```bash
+# Place order
+POST /api/v1/orders
+{
+  "type": "LIMIT",
+  "side": "BUY",
+  "assetID": "ADX-001",
+  "price": "1.234",
+  "quantity": "1000",
+  "timeInForce": "GTC"
+}
+
+# Cancel order
+DELETE /api/v1/orders/{orderID}
+
+# Get order book
+GET /api/v1/orderbook/{assetID}?depth=20
+
+# Get trades
+GET /api/v1/trades/{assetID}?limit=100
+
+# Get market stats
+GET /api/v1/markets/{assetID}/stats
+```
+
+### WebSocket Streams
+
+```javascript
+// Subscribe to order book updates
+ws.send({
+  "type": "subscribe",
+  "channel": "orderbook",
+  "assetID": "ADX-001",
+  "depth": 10
+});
+
+// Subscribe to trades
+ws.send({
+  "type": "subscribe",
+  "channel": "trades",
+  "assetID": "ADX-001"
+});
+
+// Subscribe to price ticker
+ws.send({
+  "type": "subscribe",
+  "channel": "ticker",
+  "assetID": "ADX-001"
+});
+```
+
+## Best Practices
+
+1. **Use limit orders** for large trades to control execution price
+2. **Implement slippage protection** with maximum acceptable slippage
+3. **Monitor market depth** before placing large orders
+4. **Use TWAP orders** to minimize market impact
+5. **Set position limits** to manage risk exposure
+6. **Enable circuit breakers** for volatile markets
+7. **Batch settlements** to reduce transaction costs
+8. **Use commit-reveal** for sensitive orders
+9. **Monitor for MEV** and implement protection
+10. **Regular reconciliation** of positions and balances
+
+## Next Steps
+
+- [Integration Guide →](/docs/integration)
+- [Security →](/docs/security)
+- [API Reference →](/docs/api-reference)

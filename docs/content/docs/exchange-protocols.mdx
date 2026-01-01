@@ -1,0 +1,551 @@
+---
+title: Exchange Protocols
+description: ADX exchange protocols for decentralized advertising auctions
+---
+
+# Exchange Protocols
+
+ADX implements cutting-edge exchange protocols specifically designed for real-time bidding (RTB) in decentralized advertising ecosystems.
+
+## Protocol Overview
+
+The ADX exchange operates through multiple specialized protocols:
+
+1. **Sealed-Bid Auction Protocol** - Privacy-preserving bid submission
+2. **TEE Auction Processing** - Trusted execution for auction logic
+3. **Blocklace Consensus** - Byzantine-resilient agreement
+4. **Zero-Knowledge Settlement** - Verifiable yet private outcomes
+
+## Sealed-Bid Auction Protocol
+
+### Bid Encryption
+
+All bids are encrypted using Hybrid Public Key Encryption (HPKE):
+
+```go
+// Encrypt bid for sealed auction
+encryptedBid := hpke.Seal(
+    auctionPublicKey,
+    bidData,
+    auctionContext,
+)
+
+// Bid structure
+type SealedBid struct {
+    BidID       string
+    EncBid      []byte      // HPKE encrypted bid amount
+    EncMetadata []byte      // Encrypted targeting metadata
+    Commitment  []byte      // Hash commitment to bid
+    Timestamp   time.Time
+}
+```
+
+### Auction Phases
+
+#### 1. Initialization Phase (0-100ms)
+
+```go
+auction := &Auction{
+    ID:          generateAuctionID(),
+    SlotID:      request.SlotID,
+    Publisher:   request.PublisherID,
+    Reserve:     request.ReservePrice,
+    StartTime:   time.Now(),
+    Duration:    100 * time.Millisecond,
+    PublicKey:   tee.GenerateAuctionKey(),
+}
+```
+
+#### 2. Bidding Phase (100-200ms)
+
+```go
+// Submit encrypted bid
+func SubmitBid(auction *Auction, bid *SealedBid) error {
+    // Verify auction is open
+    if !auction.IsOpen() {
+        return ErrAuctionClosed
+    }
+
+    // Validate commitment
+    if !verifyCommitment(bid) {
+        return ErrInvalidCommitment
+    }
+
+    // Store encrypted bid
+    auction.AddBid(bid)
+    return nil
+}
+```
+
+#### 3. Reveal Phase (200-250ms)
+
+Inside TEE only:
+```go
+// Decrypt and process bids in TEE
+func (tee *TEE) ProcessAuction(auction *Auction) (*Result, error) {
+    // Decrypt all bids
+    bids := make([]*Bid, 0, len(auction.SealedBids))
+    for _, sealed := range auction.SealedBids {
+        bid, err := hpke.Open(auction.PrivateKey, sealed.EncBid)
+        if err != nil {
+            continue // Invalid bid, skip
+        }
+        bids = append(bids, bid)
+    }
+
+    // Run second-price auction
+    return runSecondPriceAuction(bids, auction.Reserve)
+}
+```
+
+#### 4. Settlement Phase (250-300ms)
+
+```go
+// Generate ZK proof and settle
+proof := halo2.GenerateAuctionProof(
+    winnerCommitment,
+    secondPrice,
+    auctionParameters,
+)
+
+settlement := &Settlement{
+    AuctionID:   auction.ID,
+    Winner:      winner.AdvertiserID,
+    Price:       secondPrice,
+    Proof:       proof,
+    Attestation: tee.GetAttestation(),
+}
+```
+
+## Blocklace Consensus Protocol
+
+### DAG-Based Consensus
+
+The Blocklace protocol provides Byzantine fault tolerance without traditional voting:
+
+```go
+type Vertex struct {
+    ID        VertexID
+    Author    NodeID
+    Timestamp time.Time
+    Parents   []VertexID
+    Payload   []byte // Auction results
+    Signature []byte
+}
+
+// Add vertex to DAG
+func (dag *DAG) AddVertex(v *Vertex) error {
+    // Verify signature
+    if !verify(v.Author, v.Signature, v) {
+        return ErrInvalidSignature
+    }
+
+    // Check for equivocation
+    if dag.HasEquivocation(v.Author, v.Timestamp) {
+        dag.MarkByzantine(v.Author)
+        return ErrEquivocation
+    }
+
+    // Add to DAG
+    dag.vertices[v.ID] = v
+    dag.updateCausalOrder(v)
+    return nil
+}
+```
+
+### Cordial Miners Protocol
+
+Honest miners coordinate without explicit communication:
+
+```go
+type CordialMiner struct {
+    dag        *DAG
+    threshold  float64 // Byzantine threshold
+    window     time.Duration
+}
+
+func (m *CordialMiner) Mine() *Vertex {
+    // Select parents from frontier
+    parents := m.selectParents()
+
+    // Create new vertex
+    vertex := &Vertex{
+        ID:        generateID(),
+        Author:    m.nodeID,
+        Timestamp: time.Now(),
+        Parents:   parents,
+        Payload:   m.pendingPayload(),
+    }
+
+    // Sign vertex
+    vertex.Signature = m.sign(vertex)
+
+    return vertex
+}
+
+// Parent selection algorithm
+func (m *CordialMiner) selectParents() []VertexID {
+    frontier := m.dag.GetFrontier()
+
+    // Include vertices from honest nodes
+    parents := []VertexID{}
+    for _, v := range frontier {
+        if !m.dag.IsByzantine(v.Author) {
+            parents = append(parents, v.ID)
+        }
+    }
+
+    return parents
+}
+```
+
+## Real-Time Bidding (RTB) Protocol
+
+### OpenRTB 3.0 Compatibility
+
+ADX supports OpenRTB 3.0 with privacy extensions:
+
+```json
+{
+  "id": "auction-123",
+  "imp": [{
+    "id": "imp-1",
+    "banner": {
+      "w": 728,
+      "h": 90
+    },
+    "bidfloor": 0.5,
+    "bidfloorcur": "USD"
+  }],
+  "site": {
+    "id": "site-456",
+    "domain": "example.com"
+  },
+  "device": {
+    "ip": "ENCRYPTED",
+    "ua": "ENCRYPTED"
+  },
+  "privacy": {
+    "zkp": true,
+    "tee": true
+  }
+}
+```
+
+### Bid Response with Proofs
+
+```json
+{
+  "id": "auction-123",
+  "bidid": "bid-789",
+  "seatbid": [{
+    "bid": [{
+      "id": "1",
+      "impid": "imp-1",
+      "price": "ENCRYPTED",
+      "adm": "ENCRYPTED",
+      "proof": "BASE64_ZK_PROOF",
+      "attestation": "BASE64_TEE_ATTESTATION"
+    }],
+    "seat": "advertiser-1"
+  }]
+}
+```
+
+## Header Bidding Protocol
+
+### Parallel Auction Execution
+
+```go
+type HeaderBidding struct {
+    auctions map[string]*Auction
+    timeout  time.Duration
+}
+
+func (hb *HeaderBidding) RunParallelAuctions(request *AdRequest) *WinningBid {
+    results := make(chan *AuctionResult, len(hb.exchanges))
+
+    // Start parallel auctions
+    for _, exchange := range hb.exchanges {
+        go func(ex Exchange) {
+            result := ex.RunAuction(request)
+            results <- result
+        }(exchange)
+    }
+
+    // Collect results with timeout
+    var bestBid *WinningBid
+    timeout := time.After(hb.timeout)
+
+    for i := 0; i < len(hb.exchanges); i++ {
+        select {
+        case result := <-results:
+            if result.Price > bestBid.Price {
+                bestBid = result.Bid
+            }
+        case <-timeout:
+            break
+        }
+    }
+
+    return bestBid
+}
+```
+
+## TEE Auction Protocol
+
+### Secure Enclave Processing
+
+```go
+type TEEAuction struct {
+    enclave     *Enclave
+    attestation *RemoteAttestation
+}
+
+// Process auction inside TEE
+func (t *TEEAuction) ProcessSealedAuction(
+    sealedBids [][]byte,
+    auctionKey []byte,
+) (*AuctionResult, error) {
+    // Enter secure enclave
+    return t.enclave.Execute(func() (*AuctionResult, error) {
+        // Decrypt bids
+        bids := make([]*Bid, 0)
+        for _, sealed := range sealedBids {
+            bid := decrypt(auctionKey, sealed)
+            bids = append(bids, bid)
+        }
+
+        // Run auction logic
+        winner, price := runSecondPriceAuction(bids)
+
+        // Generate sealed result
+        result := &AuctionResult{
+            Winner:      winner,
+            Price:       price,
+            Attestation: t.attestation.Generate(),
+            Timestamp:   time.Now(),
+        }
+
+        // Sign with enclave key
+        result.Signature = t.enclave.Sign(result)
+
+        return result, nil
+    })
+}
+```
+
+### Remote Attestation
+
+```go
+// Verify TEE attestation
+func VerifyTEEResult(result *AuctionResult) bool {
+    // Verify attestation chain
+    if !verifyAttestationChain(result.Attestation) {
+        return false
+    }
+
+    // Verify enclave measurements
+    if !verifyEnclaveMeasurements(result.Attestation) {
+        return false
+    }
+
+    // Verify result signature
+    return verifyEnclaveSignature(
+        result.Attestation.PublicKey,
+        result.Signature,
+        result,
+    )
+}
+```
+
+## Zero-Knowledge Settlement Protocol
+
+### Halo2 Proof Generation
+
+```rust
+// Generate proof of correct auction execution
+pub fn generate_auction_proof(
+    bids: &[EncryptedBid],
+    winner_index: usize,
+    second_price: u64,
+) -> Proof {
+    let circuit = AuctionCircuit {
+        bids: bids.to_vec(),
+        winner_index,
+        second_price,
+    };
+
+    let params = generate_params();
+    let proof = create_proof(&params, &circuit);
+
+    proof
+}
+
+// Verify proof without learning bid values
+pub fn verify_auction_proof(
+    proof: &Proof,
+    public_inputs: &PublicInputs,
+) -> bool {
+    let params = get_params();
+    verify_proof(&params, proof, public_inputs)
+}
+```
+
+## Cross-Exchange Protocol
+
+### Inter-Exchange Communication
+
+```go
+type CrossExchangeProtocol struct {
+    peers    map[NodeID]*ExchangePeer
+    gossip   *GossipProtocol
+    consensus *BlocklaceConsensus
+}
+
+// Broadcast auction opportunity
+func (c *CrossExchangeProtocol) BroadcastOpportunity(
+    opportunity *AdOpportunity,
+) {
+    msg := &OpportunityMessage{
+        ID:        opportunity.ID,
+        Publisher: opportunity.Publisher,
+        Inventory: opportunity.Inventory,
+        MinBid:    opportunity.MinBid,
+        Deadline:  opportunity.Deadline,
+    }
+
+    c.gossip.Broadcast(msg)
+}
+
+// Aggregate bids from multiple exchanges
+func (c *CrossExchangeProtocol) AggregateBids(
+    opportunityID string,
+) []*ExchangeBid {
+    bids := []*ExchangeBid{}
+
+    for _, peer := range c.peers {
+        peerBids := peer.GetBids(opportunityID)
+        bids = append(bids, peerBids...)
+    }
+
+    return bids
+}
+```
+
+## Network Protocol Stack
+
+### Layer Architecture
+
+```
+┌──────────────────────────────┐
+│   Application Layer          │
+│   (Auction Logic)            │
+├──────────────────────────────┤
+│   Privacy Layer              │
+│   (ZKP, TEE, HPKE)          │
+├──────────────────────────────┤
+│   Consensus Layer            │
+│   (Blocklace DAG)           │
+├──────────────────────────────┤
+│   P2P Network Layer          │
+│   (Gossip, Discovery)       │
+├──────────────────────────────┤
+│   Transport Layer            │
+│   (TCP, QUIC)               │
+└──────────────────────────────┘
+```
+
+## Performance Optimizations
+
+### Parallel Bid Processing
+
+```go
+func ProcessBidsParallel(bids []*Bid) []*ProcessedBid {
+    numWorkers := runtime.NumCPU()
+    results := make(chan *ProcessedBid, len(bids))
+    workQueue := make(chan *Bid, len(bids))
+
+    // Start workers
+    for i := 0; i < numWorkers; i++ {
+        go bidWorker(workQueue, results)
+    }
+
+    // Queue bids
+    for _, bid := range bids {
+        workQueue <- bid
+    }
+    close(workQueue)
+
+    // Collect results
+    processed := make([]*ProcessedBid, 0, len(bids))
+    for i := 0; i < len(bids); i++ {
+        processed = append(processed, <-results)
+    }
+
+    return processed
+}
+```
+
+### Caching and Memoization
+
+```go
+type AuctionCache struct {
+    frequencyCaps *lru.Cache
+    budgets       *lru.Cache
+    scores        *lru.Cache
+}
+
+// Cache frequency cap checks
+func (c *AuctionCache) CheckFrequencyCap(
+    userID string,
+    campaignID string,
+) bool {
+    key := fmt.Sprintf("%s:%s", userID, campaignID)
+    if val, ok := c.frequencyCaps.Get(key); ok {
+        return val.(bool)
+    }
+
+    // Compute and cache
+    result := computeFrequencyCap(userID, campaignID)
+    c.frequencyCaps.Add(key, result)
+    return result
+}
+```
+
+## Monitoring and Analytics
+
+### Protocol Metrics
+
+```prometheus
+# Auction metrics
+auctions_total{status="completed"} 152341
+auctions_duration_ms{quantile="0.99"} 287
+bids_received_total 1823456
+bids_encrypted_total 1823456
+bids_decrypted_total 1823401
+
+# Consensus metrics
+blocklace_vertices_total 98234
+blocklace_byzantine_nodes 2
+consensus_finality_ms{quantile="0.95"} 8234
+
+# TEE metrics
+tee_attestations_generated 15234
+tee_processing_time_ms{quantile="0.99"} 45
+```
+
+## Security Properties
+
+1. **Bid Privacy**: All bids remain encrypted until TEE processing
+2. **Auction Integrity**: ZK proofs verify correct execution
+3. **Byzantine Resilience**: Tolerates up to 1/3 malicious nodes
+4. **Attestation**: TEE provides hardware-backed proof
+5. **Non-Repudiation**: All actions cryptographically signed
+6. **Replay Protection**: Nonce-based duplicate detection
+
+## Next Steps
+
+- [Trading Operations →](/docs/trading-operations)
+- [Integration Guide →](/docs/integration)
+- [Security →](/docs/security)

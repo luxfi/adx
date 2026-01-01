@@ -1,0 +1,381 @@
+---
+title: Asset Distribution
+description: Understanding ADX asset distribution mechanisms and protocols
+---
+
+# Asset Distribution
+
+ADX provides a sophisticated asset distribution system designed for high-performance decentralized advertising exchanges with advanced cryptographic features.
+
+## Overview
+
+The Asset Distribution Exchange (ADX) implements multiple layers of asset management:
+- Token minting and burning capabilities
+- Balance tracking across multiple assets
+- Atomic transfer mechanisms
+- Cryptographically secure distribution
+
+## Core Components
+
+### Asset Types
+
+ADX supports multiple asset types within the distribution system:
+
+- **Native Tokens**: Primary exchange tokens for platform operations
+- **Advertising Credits**: Pre-purchased credits for campaign funding
+- **Reward Tokens**: Distributed to participants based on performance
+- **Stake Tokens**: Used for validator participation and governance
+
+### Distribution Mechanisms
+
+#### 1. Direct Distribution
+
+Direct asset distribution for immediate transfers:
+
+```go
+// Transfer assets between accounts
+err := engine.TransferAsset(
+    assetID,     // Asset identifier
+    fromAccount, // Source account
+    toAccount,   // Destination account
+    amount,      // Transfer amount
+)
+```
+
+Features:
+- Atomic transfers with rollback on failure
+- Balance verification before transfer
+- Decimal precision support for micro-transactions
+- Multi-asset support in single transaction
+
+#### 2. Minting and Burning
+
+Controlled asset supply management:
+
+```go
+// Mint new assets
+err := engine.MintAsset(assetID, account, amount)
+
+// Burn existing assets
+err := engine.BurnAsset(assetID, account, amount)
+```
+
+Use cases:
+- Initial token distribution
+- Reward generation
+- Supply adjustment based on market conditions
+- Asset removal for compliance
+
+#### 3. Batch Distribution
+
+Efficient distribution to multiple recipients:
+
+```json
+{
+  "distributions": [
+    {
+      "assetID": "ADX-001",
+      "recipients": [
+        {"account": "0x123...", "amount": "1000.50"},
+        {"account": "0x456...", "amount": "2500.75"},
+        {"account": "0x789...", "amount": "500.25"}
+      ]
+    }
+  ]
+}
+```
+
+Benefits:
+- Single transaction for multiple transfers
+- Gas optimization
+- Atomic batch processing
+- Rollback on any failure
+
+## Distribution Protocols
+
+### Verkle Tree Integration
+
+ADX uses Verkle trees for efficient proof of distribution:
+
+```go
+// Generate distribution proof
+proof := verkle.GenerateProof(
+    distributions,
+    merkleRoot,
+)
+
+// Verify distribution
+valid := verkle.VerifyProof(
+    proof,
+    claimedDistribution,
+    merkleRoot,
+)
+```
+
+Advantages:
+- O(1) constant-size proofs
+- Efficient verification at scale
+- Privacy-preserving distribution records
+- Minimal storage overhead
+
+### Byzantine-Resilient Distribution
+
+The Blocklace consensus ensures distribution integrity:
+
+1. **Proposal Phase**
+   - Distribution proposals submitted to DAG
+   - Cordial miners validate proposals
+   - Equivocation detection prevents double-distribution
+
+2. **Consensus Phase**
+   - Byzantine nodes automatically excluded
+   - Causal ordering of distributions
+   - Total order sequence generation
+
+3. **Execution Phase**
+   - Atomic execution of approved distributions
+   - State updates across all nodes
+   - Audit log generation
+
+### Zero-Knowledge Distribution Proofs
+
+Halo2 ZK proofs enable private distributions:
+
+```rust
+// Generate ZK proof of valid distribution
+let proof = halo2::generate_distribution_proof(
+    distribution_data,
+    recipient_commitments,
+    total_amount,
+);
+
+// Verify without revealing details
+let valid = halo2::verify_distribution(proof, public_inputs);
+```
+
+Applications:
+- Private reward distributions
+- Confidential advertiser payments
+- Anonymous participant rewards
+- Compliance without disclosure
+
+## Settlement Layer
+
+### Budget Management
+
+Pre-funded budgets for advertising campaigns:
+
+```go
+type Budget struct {
+    AdvertiserID string
+    Available    decimal.Decimal
+    Locked       decimal.Decimal
+    Spent        decimal.Decimal
+}
+
+// Fund budget
+settlement.FundBudget(advertiserID, amount)
+
+// Lock funds for auction
+settlement.LockFunds(advertiserID, auctionID, amount)
+
+// Execute settlement
+settlement.Settle(auctionID, winnerID, finalPrice)
+```
+
+### Cross-Chain Settlement
+
+Support for multi-chain asset distribution:
+
+1. **Lock on Source Chain**
+   ```solidity
+   function lockAssets(
+       address token,
+       uint256 amount,
+       bytes32 targetChain
+   ) external
+   ```
+
+2. **Mint on Target Chain**
+   ```solidity
+   function mintWrapped(
+       address recipient,
+       uint256 amount,
+       bytes proof
+   ) external
+   ```
+
+3. **Finality Confirmation**
+   - Wait for source chain finality
+   - Verify cross-chain proof
+   - Execute distribution on target
+
+## Performance Optimization
+
+### Caching Layer
+
+In-memory caching for hot accounts:
+
+```go
+type BalanceCache struct {
+    cache map[string]decimal.Decimal
+    ttl   time.Duration
+}
+
+// Quick balance check
+balance := cache.GetBalance(assetID, account)
+```
+
+### Batch Processing
+
+Optimized batch operations:
+
+```go
+// Process multiple distributions in single DB transaction
+err := db.Transaction(func(tx *sql.Tx) error {
+    for _, dist := range distributions {
+        if err := processDistribution(tx, dist); err != nil {
+            return err // Automatic rollback
+        }
+    }
+    return nil // Commit
+})
+```
+
+### Parallel Validation
+
+Concurrent distribution validation:
+
+```go
+results := make(chan ValidationResult, len(distributions))
+for _, dist := range distributions {
+    go validateDistribution(dist, results)
+}
+```
+
+## Security Considerations
+
+### Balance Overflow Protection
+
+```go
+// Safe addition with overflow check
+newBalance := currentBalance.Add(amount)
+if newBalance.GreaterThan(MaxBalance) {
+    return ErrBalanceOverflow
+}
+```
+
+### Reentrancy Guards
+
+```go
+type DistributionMutex struct {
+    locks map[string]*sync.Mutex
+}
+
+// Prevent concurrent modifications
+mutex.Lock(accountID)
+defer mutex.Unlock(accountID)
+```
+
+### Audit Logging
+
+```go
+type DistributionEvent struct {
+    Timestamp   time.Time
+    AssetID     string
+    From        string
+    To          string
+    Amount      decimal.Decimal
+    TxHash      string
+    BlockHeight uint64
+}
+
+// Log all distributions
+logger.LogDistribution(event)
+```
+
+## Monitoring and Metrics
+
+### Key Metrics
+
+- **Distribution Throughput**: Distributions per second
+- **Settlement Latency**: Time from auction to settlement
+- **Failed Distributions**: Rate of failed transfers
+- **Asset Velocity**: Circulation speed of assets
+- **Cache Hit Rate**: Balance cache effectiveness
+
+### Prometheus Integration
+
+```go
+// Distribution metrics
+distributions_total{asset="ADX", status="success"} 15234
+distributions_total{asset="ADX", status="failed"} 23
+settlement_duration_seconds{percentile="95"} 0.125
+balance_cache_hits_total 98234
+balance_cache_misses_total 1823
+```
+
+## API Reference
+
+### REST Endpoints
+
+```bash
+# Get asset balance
+GET /api/v1/balance/{assetID}/{account}
+
+# Transfer assets
+POST /api/v1/transfer
+{
+  "assetID": "ADX-001",
+  "from": "0x123...",
+  "to": "0x456...",
+  "amount": "1000.50"
+}
+
+# Batch distribution
+POST /api/v1/distribute/batch
+{
+  "distributions": [...]
+}
+
+# Get distribution history
+GET /api/v1/distributions/{account}?limit=100
+```
+
+### WebSocket Subscriptions
+
+```javascript
+// Subscribe to balance updates
+ws.send({
+  "type": "subscribe",
+  "channel": "balance",
+  "params": {
+    "account": "0x123...",
+    "assets": ["ADX-001", "ADX-002"]
+  }
+});
+
+// Receive updates
+ws.on('message', (data) => {
+  // {"type":"balance_update","asset":"ADX-001","balance":"5000.75"}
+});
+```
+
+## Best Practices
+
+1. **Always verify balances** before initiating transfers
+2. **Use batch operations** for multiple distributions
+3. **Implement retry logic** for failed distributions
+4. **Monitor gas costs** for on-chain settlements
+5. **Cache frequently accessed** balances
+6. **Log all distribution events** for audit trails
+7. **Set reasonable limits** on single transfers
+8. **Use ZK proofs** for sensitive distributions
+9. **Implement circuit breakers** for anomaly detection
+10. **Regular reconciliation** with on-chain state
+
+## Next Steps
+
+- [Exchange Protocols →](/docs/exchange-protocols)
+- [Trading Operations →](/docs/trading-operations)
+- [Integration Guide →](/docs/integration)

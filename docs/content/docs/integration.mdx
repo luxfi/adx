@@ -1,0 +1,691 @@
+---
+title: Integration Guide
+description: Step-by-step guide to integrating with the ADX platform
+---
+
+# Integration Guide
+
+This guide provides comprehensive instructions for integrating with the ADX decentralized advertising exchange platform.
+
+## Quick Start
+
+### Prerequisites
+
+- Go 1.21+ for backend integration
+- Node.js 18+ for frontend SDKs
+- Docker for containerized deployment
+- Access to ADX network endpoints
+
+### Installation
+
+#### Go SDK
+
+```bash
+go get github.com/luxfi/adx/sdk/go
+```
+
+```go
+import (
+    "github.com/luxfi/adx/sdk/go/client"
+    "github.com/luxfi/adx/sdk/go/types"
+)
+
+// Initialize client
+adxClient := client.New(client.Config{
+    Endpoint:  "https://api.adx.network",
+    APIKey:    "your-api-key",
+    APISecret: "your-api-secret",
+})
+```
+
+#### JavaScript/TypeScript SDK
+
+```bash
+npm install @luxfi/adx-sdk
+```
+
+```typescript
+import { ADXClient } from '@luxfi/adx-sdk';
+
+// Initialize client
+const client = new ADXClient({
+  endpoint: 'https://api.adx.network',
+  apiKey: 'your-api-key',
+  apiSecret: 'your-api-secret',
+});
+```
+
+#### Python SDK
+
+```bash
+pip install luxfi-adx
+```
+
+```python
+from luxfi_adx import ADXClient
+
+# Initialize client
+client = ADXClient(
+    endpoint='https://api.adx.network',
+    api_key='your-api-key',
+    api_secret='your-api-secret'
+)
+```
+
+## Publisher Integration
+
+### 1. Register as Publisher
+
+```go
+// Register publisher account
+publisher, err := adxClient.Publishers.Register(&types.PublisherRegistration{
+    Name:        "Example Publisher",
+    Domain:      "example.com",
+    Categories:  []string{"news", "technology"},
+    MonthlyPageviews: 1000000,
+})
+
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Publisher ID: %s\n", publisher.ID)
+```
+
+### 2. Create Ad Inventory
+
+```go
+// Define ad slots
+slot := &types.AdSlot{
+    SlotID:      "homepage-banner-728x90",
+    PublisherID: publisher.ID,
+    Size: types.AdSize{
+        Width:  728,
+        Height: 90,
+    },
+    Position:    "above-fold",
+    FloorPrice:  0.50, // Minimum CPM
+}
+
+// Register slot
+err = adxClient.Inventory.CreateSlot(slot)
+```
+
+### 3. Request Ads (Client-Side)
+
+```html
+<!-- ADX Ad Tag -->
+<div id="adx-slot-homepage-banner-728x90"></div>
+<script>
+  (function() {
+    window.adx = window.adx || {};
+    window.adx.slots = window.adx.slots || [];
+    window.adx.slots.push({
+      slotId: 'homepage-banner-728x90',
+      divId: 'adx-slot-homepage-banner-728x90',
+      sizes: [[728, 90]],
+      targeting: {
+        section: 'homepage',
+        keywords: ['technology', 'news']
+      }
+    });
+  })();
+</script>
+<script async src="https://cdn.adx.network/tags/publisher.js"></script>
+```
+
+### 4. Server-Side Header Bidding
+
+```go
+// Create bid request
+bidRequest := &types.BidRequest{
+    ID: generateRequestID(),
+    Imp: []types.Impression{{
+        ID:       "1",
+        SlotID:   "homepage-banner-728x90",
+        BidFloor: 0.50,
+        Banner: &types.Banner{
+            Width:  728,
+            Height: 90,
+        },
+    }},
+    Site: &types.Site{
+        ID:     publisher.ID,
+        Domain: "example.com",
+        Page:   "https://example.com/article",
+    },
+    User: &types.User{
+        ID: hashedUserID,
+    },
+    Device: &types.Device{
+        UA:  userAgent,
+        IP:  hashedIP,
+        Geo: geoData,
+    },
+}
+
+// Submit to auction
+response, err := adxClient.Auctions.RequestBids(bidRequest)
+if err != nil {
+    return handleNoBid()
+}
+
+// Select winning bid
+winner := response.GetWinningBid()
+```
+
+## Advertiser Integration
+
+### 1. Register as Advertiser
+
+```typescript
+// Register advertiser account
+const advertiser = await client.advertisers.register({
+  name: 'Example Advertiser',
+  industry: 'e-commerce',
+  website: 'https://shop.example.com',
+  billingInfo: {
+    // Billing details
+  }
+});
+
+console.log(`Advertiser ID: ${advertiser.id}`);
+```
+
+### 2. Fund Budget
+
+```typescript
+// Fund advertising budget
+const funding = await client.budgets.fund({
+  advertiserID: advertiser.id,
+  amount: 10000, // $10,000
+  currency: 'USD',
+  paymentMethod: 'crypto', // or 'wire', 'card'
+  cryptoDetails: {
+    chain: 'ethereum',
+    txHash: '0x...',
+  }
+});
+
+console.log(`Budget funded: ${funding.confirmedAmount}`);
+```
+
+### 3. Create Campaign
+
+```typescript
+// Create advertising campaign
+const campaign = await client.campaigns.create({
+  advertiserID: advertiser.id,
+  name: 'Summer Sale 2025',
+  budget: 5000,
+  startDate: '2025-06-01',
+  endDate: '2025-08-31',
+  targeting: {
+    geo: ['US', 'CA'],
+    categories: ['shopping', 'fashion'],
+    devices: ['mobile', 'desktop'],
+  },
+  bidStrategy: {
+    type: 'AUTO_BID',
+    targetCPA: 2.50,
+  }
+});
+```
+
+### 4. Upload Creatives
+
+```typescript
+// Upload banner creative
+const creative = await client.creatives.upload({
+  campaignID: campaign.id,
+  type: 'banner',
+  name: 'Summer Sale Banner',
+  sizes: [
+    { width: 728, height: 90 },
+    { width: 300, height: 250 }
+  ],
+  assets: {
+    image: './banner-728x90.jpg',
+    clickURL: 'https://shop.example.com/summer-sale',
+  },
+  // Optional: privacy-preserving tracking
+  tracking: {
+    impressions: true,
+    clicks: true,
+    conversions: true,
+  }
+});
+```
+
+### 5. Set Up Bidding
+
+```go
+// Configure bid strategy
+bidder := &types.Bidder{
+    AdvertiserID: advertiserID,
+    CampaignID:   campaignID,
+    Strategy: &types.BidStrategy{
+        Type:      types.AutoBid,
+        MaxCPM:    5.00,
+        TargetCPA: 2.50,
+        DailyBudget: 500.00,
+    },
+}
+
+// Register bidder
+err = adxClient.Bidders.Register(bidder)
+
+// Bidder will automatically participate in relevant auctions
+```
+
+## DSP Integration
+
+### 1. Connect as DSP
+
+```python
+# Initialize DSP connection
+dsp = client.dsp.connect({
+    'name': 'Example DSP',
+    'endpoint': 'https://dsp.example.com/rtb',
+    'qps_limit': 10000,  # Queries per second
+    'timeout_ms': 100,    # Bid response timeout
+    'auth': {
+        'type': 'bearer',
+        'token': 'dsp-auth-token'
+    }
+})
+```
+
+### 2. Receive Bid Requests
+
+```python
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/rtb/bid', methods=['POST'])
+def handle_bid_request():
+    bid_request = request.json
+
+    # Process bid request
+    impression = bid_request['imp'][0]
+
+    # Generate bid
+    bid = generate_bid(
+        impression_id=impression['id'],
+        price=calculate_bid_price(impression),
+        creative_id='creative-123',
+        advertiser_id='adv-456'
+    )
+
+    # Encrypt bid for privacy
+    encrypted_bid = encrypt_bid(bid, bid_request['auction_key'])
+
+    # Return bid response
+    return jsonify({
+        'id': bid_request['id'],
+        'bidid': generate_bid_id(),
+        'seatbid': [{
+            'bid': [{
+                'id': bid['id'],
+                'impid': impression['id'],
+                'price_encrypted': encrypted_bid['price'],
+                'adm_encrypted': encrypted_bid['creative'],
+                'proof': generate_zk_proof(bid)
+            }]
+        }]
+    })
+```
+
+### 3. Handle Win Notifications
+
+```python
+@app.route('/rtb/win', methods=['POST'])
+def handle_win_notice():
+    win_notice = request.json
+
+    # Record win
+    record_auction_win(
+        auction_id=win_notice['auction_id'],
+        bid_id=win_notice['bid_id'],
+        clearing_price=win_notice['price'],
+        impression_id=win_notice['imp_id']
+    )
+
+    # Update ML models
+    update_bidding_model(win_notice)
+
+    return jsonify({'status': 'acknowledged'})
+```
+
+## Exchange Integration
+
+### 1. Run Exchange Node
+
+```bash
+# Pull ADX node image
+docker pull luxfi/adx-node:latest
+
+# Run exchange node
+docker run -d \
+  --name adx-exchange \
+  -p 8080:8080 \
+  -p 9090:9090 \
+  -p 10000:10000 \
+  -v /data/adx:/data \
+  -e NODE_TYPE=exchange \
+  -e NETWORK=mainnet \
+  -e NODE_KEY=/data/node.key \
+  luxfi/adx-node:latest
+```
+
+### 2. Configure Exchange
+
+```yaml
+# exchange-config.yaml
+exchange:
+  name: "Regional Exchange #1"
+  region: "us-east"
+
+  auction:
+    timeout_ms: 100
+    min_bidders: 3
+    floor_price: 0.10
+
+  consensus:
+    type: blocklace
+    byzantine_threshold: 0.33
+
+  tee:
+    enabled: true
+    provider: "sgx"  # or "sev", "nitro"
+    attestation_server: "https://attestation.adx.network"
+
+  settlement:
+    batch_size: 100
+    interval_seconds: 60
+
+  storage:
+    type: "badgerdb"
+    path: "/data/db"
+
+  metrics:
+    prometheus_port: 9090
+    export_interval: 10s
+```
+
+### 3. Join Network
+
+```go
+// Join ADX network as exchange
+exchange := &types.Exchange{
+    ID:       generateExchangeID(),
+    Name:     "Regional Exchange #1",
+    Endpoint: "https://exchange1.example.com",
+    Region:   "us-east",
+    PublicKey: loadPublicKey(),
+}
+
+// Register with network
+err = adxClient.Network.RegisterExchange(exchange)
+
+// Start participating in consensus
+consensus := blocklace.NewConsensus(blocklace.Config{
+    NodeID:     exchange.ID,
+    PrivateKey: loadPrivateKey(),
+    Peers:      adxClient.Network.GetPeers(),
+})
+
+consensus.Start()
+```
+
+## Smart Contract Integration
+
+### 1. Deploy Settlement Contract
+
+```solidity
+// ADXSettlement.sol
+pragma solidity ^0.8.0;
+
+import "@luxfi/adx-contracts/Settlement.sol";
+
+contract ADXSettlement is Settlement {
+    constructor(address _token, address _oracle) {
+        token = IERC20(_token);
+        oracle = IPriceOracle(_oracle);
+    }
+
+    function settleBatch(
+        bytes32 merkleRoot,
+        Settlement[] calldata settlements,
+        bytes calldata proof
+    ) external {
+        // Verify ZK proof
+        require(verifyProof(merkleRoot, proof), "Invalid proof");
+
+        // Execute settlements
+        for (uint i = 0; i < settlements.length; i++) {
+            _settle(settlements[i]);
+        }
+    }
+}
+```
+
+### 2. Deploy Token Contract
+
+```solidity
+// ADXToken.sol
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract ADXToken is ERC20 {
+    constructor() ERC20("ADX Token", "ADX") {
+        _mint(msg.sender, 1000000000 * 10**decimals());
+    }
+
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
+    }
+}
+```
+
+## Monitoring Integration
+
+### 1. Prometheus Metrics
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'adx-node'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'adx-api'
+    static_configs:
+      - targets: ['localhost:8080']
+```
+
+### 2. Grafana Dashboard
+
+```json
+{
+  "dashboard": {
+    "title": "ADX Exchange Metrics",
+    "panels": [
+      {
+        "title": "Auctions/sec",
+        "targets": [{
+          "expr": "rate(adx_auctions_total[1m])"
+        }]
+      },
+      {
+        "title": "Bid Latency",
+        "targets": [{
+          "expr": "histogram_quantile(0.99, adx_bid_latency_seconds)"
+        }]
+      },
+      {
+        "title": "Settlement Success Rate",
+        "targets": [{
+          "expr": "rate(adx_settlements_success[5m]) / rate(adx_settlements_total[5m])"
+        }]
+      }
+    ]
+  }
+}
+```
+
+### 3. Alerting Rules
+
+```yaml
+# alerts.yml
+groups:
+  - name: adx_alerts
+    rules:
+      - alert: HighBidLatency
+        expr: histogram_quantile(0.99, adx_bid_latency_seconds) > 0.1
+        annotations:
+          summary: "Bid latency exceeds 100ms"
+
+      - alert: LowAuctionRate
+        expr: rate(adx_auctions_total[5m]) < 100
+        annotations:
+          summary: "Auction rate below 100/sec"
+
+      - alert: SettlementFailures
+        expr: rate(adx_settlements_failed[5m]) > 0.01
+        annotations:
+          summary: "Settlement failure rate above 1%"
+```
+
+## Testing Integration
+
+### 1. Local Test Network
+
+```bash
+# Start local test network
+make run-local
+
+# Run integration tests
+make test-integration
+
+# Run load tests
+make test-load
+```
+
+### 2. Test Harness
+
+```go
+func TestAuctionFlow(t *testing.T) {
+    // Initialize test client
+    client := NewTestClient()
+
+    // Create test publisher
+    publisher := client.CreateTestPublisher()
+
+    // Create test advertiser
+    advertiser := client.CreateTestAdvertiser()
+
+    // Fund advertiser budget
+    client.FundBudget(advertiser.ID, 1000.00)
+
+    // Create bid request
+    bidRequest := CreateTestBidRequest(publisher.ID)
+
+    // Submit to auction
+    response, err := client.RunAuction(bidRequest)
+    require.NoError(t, err)
+
+    // Verify winner
+    assert.NotNil(t, response.Winner)
+    assert.Equal(t, advertiser.ID, response.Winner.AdvertiserID)
+
+    // Verify settlement
+    settlement := client.GetSettlement(response.AuctionID)
+    assert.Equal(t, "completed", settlement.Status)
+}
+```
+
+## Migration Guide
+
+### From OpenRTB 2.x to ADX
+
+```go
+// OpenRTB 2.x request
+oldRequest := &openrtb2.BidRequest{
+    ID: "req-123",
+    Imp: []openrtb2.Imp{
+        // ...
+    },
+}
+
+// Convert to ADX format
+adxRequest := &types.BidRequest{
+    ID: oldRequest.ID,
+    Imp: convertImpressions(oldRequest.Imp),
+    Privacy: &types.Privacy{
+        ZKP: true,
+        TEE: true,
+    },
+}
+
+// Submit to ADX
+response := adxClient.Auctions.RequestBids(adxRequest)
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Connection Timeouts
+```bash
+# Check network connectivity
+curl https://api.adx.network/health
+
+# Verify firewall rules
+sudo iptables -L | grep 8080
+```
+
+#### Authentication Errors
+```go
+// Verify API credentials
+client := NewClient(Config{
+    Endpoint:  os.Getenv("ADX_ENDPOINT"),
+    APIKey:    os.Getenv("ADX_API_KEY"),
+    APISecret: os.Getenv("ADX_API_SECRET"),
+    Debug:     true, // Enable debug logging
+})
+```
+
+#### Bid Rejection
+```typescript
+// Check bid validation
+const validationResult = await client.bids.validate({
+  price: bidPrice,
+  creative: creativeID,
+  targeting: targetingCriteria
+});
+
+if (!validationResult.valid) {
+  console.error('Bid validation failed:', validationResult.errors);
+}
+```
+
+## Support Resources
+
+- **Documentation**: https://docs.adx.network
+- **API Reference**: https://api.adx.network/docs
+- **SDKs**: https://github.com/luxfi/adx-sdks
+- **Discord**: https://discord.gg/adx-network
+- **Support Email**: support@adx.network
+
+## Next Steps
+
+- [Security Considerations →](/docs/security)
+- [API Reference →](/docs/api-reference)
+- [Performance Tuning →](/docs/performance)
