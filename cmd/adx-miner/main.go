@@ -128,7 +128,7 @@ func startMiner() {
 
 	// Create and start miner
 	m := miner.NewHomeMiner(config, tunnelConfig)
-	
+
 	// Detect hardware
 	hw := m.DetectHardware()
 	log.Printf("Hardware detected:")

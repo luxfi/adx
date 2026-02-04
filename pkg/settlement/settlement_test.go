@@ -50,14 +50,14 @@ func TestSettlementCreation(t *testing.T) {
 	logger := log.NoOp()
 
 	mgr := NewBudgetManager(logger)
-	
+
 	// Set up budget and deduct to create pending amount
 	advertiserID := ids.GenerateTestID()
 	publisherID := ids.GenerateTestID()
-	
+
 	err := mgr.SetBudget(advertiserID, 10000)
 	require.NoError(err)
-	
+
 	// Deduct some amount to create pending
 	auctionID := ids.GenerateTestID()
 	_, err = mgr.DeductBudget(advertiserID, 1000, auctionID)
@@ -205,4 +205,3 @@ func BenchmarkBatchSettlement(b *testing.B) {
 		_ = ausd.metrics
 	}
 }
-

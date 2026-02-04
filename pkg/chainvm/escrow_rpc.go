@@ -20,16 +20,16 @@ type EscrowManager struct {
 
 // Campaign represents a pre-funded advertising campaign
 type Campaign struct {
-	ID               string          `json:"id"`
-	Advertiser       string          `json:"advertiser"`
-	TotalBudget      decimal.Decimal `json:"total_budget"`
-	AvailableBudget  decimal.Decimal `json:"available_budget"`
-	ReservedBudget   decimal.Decimal `json:"reserved_budget"`
-	SpentBudget      decimal.Decimal `json:"spent_budget"`
-	Active           bool            `json:"active"`
-	HoldbackBps      uint16          `json:"holdback_bps"` // Basis points for fraud protection
-	Created          time.Time       `json:"created"`
-	GuaranteedDeals  []PGDeal        `json:"guaranteed_deals,omitempty"`
+	ID              string          `json:"id"`
+	Advertiser      string          `json:"advertiser"`
+	TotalBudget     decimal.Decimal `json:"total_budget"`
+	AvailableBudget decimal.Decimal `json:"available_budget"`
+	ReservedBudget  decimal.Decimal `json:"reserved_budget"`
+	SpentBudget     decimal.Decimal `json:"spent_budget"`
+	Active          bool            `json:"active"`
+	HoldbackBps     uint16          `json:"holdback_bps"` // Basis points for fraud protection
+	Created         time.Time       `json:"created"`
+	GuaranteedDeals []PGDeal        `json:"guaranteed_deals,omitempty"`
 }
 
 // Reservation represents atomic impression reservation with TTL
@@ -45,25 +45,25 @@ type Reservation struct {
 
 // ReservationMeta contains impression targeting details
 type ReservationMeta struct {
-	Placement    string   `json:"placement"`
-	Geo          string   `json:"geo"`
-	DeviceType   string   `json:"device_type"`
-	Categories   []string `json:"categories"`
-	Viewability  float64  `json:"min_viewability"`
-	UserHash     string   `json:"user_hash,omitempty"` // Privacy-preserving user identifier
+	Placement   string   `json:"placement"`
+	Geo         string   `json:"geo"`
+	DeviceType  string   `json:"device_type"`
+	Categories  []string `json:"categories"`
+	Viewability float64  `json:"min_viewability"`
+	UserHash    string   `json:"user_hash,omitempty"` // Privacy-preserving user identifier
 }
 
 // PGDeal represents programmatic guaranteed deal
 type PGDeal struct {
-	ID           string          `json:"id"`
-	Publisher    string          `json:"publisher"`
-	StartTime    time.Time       `json:"start_time"`
-	EndTime      time.Time       `json:"end_time"`
-	TotalImprs   uint64          `json:"total_impressions"`
-	DeliveredImprs uint64        `json:"delivered_impressions"`
-	FixedCPM     decimal.Decimal `json:"fixed_cpm"`
-	EscrowAmount decimal.Decimal `json:"escrow_amount"`
-	PenaltyRate  decimal.Decimal `json:"penalty_rate"` // Auto-penalty for under-delivery
+	ID             string          `json:"id"`
+	Publisher      string          `json:"publisher"`
+	StartTime      time.Time       `json:"start_time"`
+	EndTime        time.Time       `json:"end_time"`
+	TotalImprs     uint64          `json:"total_impressions"`
+	DeliveredImprs uint64          `json:"delivered_impressions"`
+	FixedCPM       decimal.Decimal `json:"fixed_cpm"`
+	EscrowAmount   decimal.Decimal `json:"escrow_amount"`
+	PenaltyRate    decimal.Decimal `json:"penalty_rate"` // Auto-penalty for under-delivery
 }
 
 // RPC Methods for Chain VM
@@ -158,8 +158,8 @@ func (e *EscrowManager) ReserveBudget(ctx context.Context, req *ReserveBudgetReq
 	e.state.SetReservation(req.ReservationID, reservation)
 
 	return &ReserveBudgetResponse{
-		Success:    true,
-		Expires:    reservation.Expires,
+		Success:         true,
+		Expires:         reservation.Expires,
 		RemainingBudget: campaign.AvailableBudget,
 	}, nil
 }
@@ -212,9 +212,9 @@ func (e *EscrowManager) SettleReceipt(ctx context.Context, req *SettleReceiptReq
 	e.state.SetReservation(req.ReservationID, reservation)
 
 	return &SettleReceiptResponse{
-		Success:         true,
-		PaidAmount:      immediateAmount,
-		HoldbackAmount:  holdbackAmount,
+		Success:          true,
+		PaidAmount:       immediateAmount,
+		HoldbackAmount:   holdbackAmount,
 		PublisherBalance: publisherBalance,
 	}, nil
 }
@@ -271,17 +271,17 @@ func (e *EscrowManager) verifyDeliveryProof(proof string, reservation *Reservati
 	// In production: validate VRF nonce, signed player events, viewability attestation
 	proofHash := sha256.Sum256([]byte(proof))
 	expectedHash := sha256.Sum256([]byte(reservation.ID + reservation.Publisher))
-	
+
 	// Simplified verification - production would use more sophisticated proof system
 	if len(proof) < 32 {
 		return fmt.Errorf("invalid proof format")
 	}
-	
+
 	// Verify proof contains reservation ID (anti-replay)
 	if len(proofHash) != len(expectedHash) {
 		return fmt.Errorf("proof verification failed")
 	}
-	
+
 	return nil
 }
 

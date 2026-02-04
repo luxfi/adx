@@ -23,10 +23,10 @@ var (
 type Circuit interface {
 	// Setup generates proving and verifying keys
 	Setup() (*ProvingKey, *VerifyingKey, error)
-	
+
 	// Prove generates a proof given witness
 	Prove(pk *ProvingKey, witness Witness) (*Proof, error)
-	
+
 	// Verify checks a proof against public inputs
 	Verify(vk *VerifyingKey, publicInputs [][]byte, proof *Proof) bool
 }
@@ -92,23 +92,23 @@ func (ac *AuctionCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 		// All bids are in valid range
 		{Type: "range", Left: "bids", Right: "0_to_max"},
 	}
-	
+
 	// Generate random parameters (simplified)
 	params := make([]byte, 32)
 	rand.Read(params)
-	
+
 	pk := &ProvingKey{
 		CircuitID:   "auction_v1",
 		Constraints: constraints,
 		Parameters:  params,
 	}
-	
+
 	vk := &VerifyingKey{
 		CircuitID:      "auction_v1",
 		PublicParams:   params[:16],
 		ConstraintHash: hashing.ComputeHash256([]byte("auction_constraints")),
 	}
-	
+
 	return pk, vk, nil
 }
 
@@ -119,12 +119,12 @@ func (ac *AuctionCircuit) Prove(pk *ProvingKey, witness Witness) (*Proof, error)
 	if !exists {
 		return nil, ErrInvalidWitness
 	}
-	
+
 	secondPrice, exists := witness.Values["second_price"]
 	if !exists {
 		return nil, ErrInvalidWitness
 	}
-	
+
 	// Verify constraints locally
 	// 1. Winner bid is maximum
 	for i := 0; i < ac.NumBids; i++ {
@@ -134,32 +134,32 @@ func (ac *AuctionCircuit) Prove(pk *ProvingKey, witness Witness) (*Proof, error)
 			return nil, ErrConstraintFailed
 		}
 	}
-	
+
 	// 2. Price is correct (second price or reserve)
 	reserveBig := big.NewInt(int64(ac.Reserve))
 	price := secondPrice
 	if secondPrice.Cmp(reserveBig) < 0 {
 		price = reserveBig
 	}
-	
+
 	actualPrice, exists := witness.Values["price"]
 	if !exists || actualPrice.Cmp(price) != 0 {
 		return nil, ErrConstraintFailed
 	}
-	
+
 	// Generate proof (simplified Fiat-Shamir)
 	commitment := ac.generateCommitment(witness)
 	challenge := ac.generateChallenge(commitment, pk.Parameters)
 	response := ac.generateResponse(witness, challenge)
-	
+
 	proof := &Proof{
 		Commitment: commitment,
 		Challenge:  challenge,
 		Response:   response,
 	}
-	
+
 	ac.log.Debug("Auction proof generated")
-	
+
 	return proof, nil
 }
 
@@ -169,13 +169,13 @@ func (ac *AuctionCircuit) Verify(vk *VerifyingKey, publicInputs [][]byte, proof 
 	if len(proof.Commitment) == 0 || len(proof.Response) == 0 {
 		return false
 	}
-	
+
 	// Verify challenge (Fiat-Shamir)
 	expectedChallenge := ac.generateChallenge(proof.Commitment, vk.PublicParams)
 	if string(expectedChallenge) != string(proof.Challenge) {
 		return false
 	}
-	
+
 	// Simplified verification - in production use actual Halo2/Plonky3
 	return true
 }
@@ -183,13 +183,13 @@ func (ac *AuctionCircuit) Verify(vk *VerifyingKey, publicInputs [][]byte, proof 
 // generateCommitment creates a commitment to witness
 func (ac *AuctionCircuit) generateCommitment(witness Witness) []byte {
 	data := make([]byte, 0)
-	
+
 	// Commit to all witness values
 	for key, value := range witness.Values {
 		data = append(data, []byte(key)...)
 		data = append(data, value.Bytes()...)
 	}
-	
+
 	return hashing.ComputeHash256(data)
 }
 
@@ -203,9 +203,9 @@ func (ac *AuctionCircuit) generateChallenge(commitment []byte, params []byte) []
 func (ac *AuctionCircuit) generateResponse(witness Witness, challenge []byte) []byte {
 	// Simplified response generation
 	data := make([]byte, 0)
-	
+
 	challengeBig := new(big.Int).SetBytes(challenge)
-	
+
 	for _, value := range witness.Values {
 		// response = witness + challenge * randomness (simplified)
 		resp := new(big.Int).Add(value, challengeBig)
@@ -214,7 +214,7 @@ func (ac *AuctionCircuit) generateResponse(witness Witness, challenge []byte) []
 			break
 		}
 	}
-	
+
 	return hashing.ComputeHash256(data)
 }
 
@@ -236,22 +236,22 @@ func (bc *BudgetCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 		// new_budget >= 0
 		{Type: "range", Left: "new_budget", Right: "non_negative"},
 	}
-	
+
 	params := make([]byte, 32)
 	rand.Read(params)
-	
+
 	pk := &ProvingKey{
 		CircuitID:   "budget_v1",
 		Constraints: constraints,
 		Parameters:  params,
 	}
-	
+
 	vk := &VerifyingKey{
 		CircuitID:      "budget_v1",
 		PublicParams:   params[:16],
 		ConstraintHash: hashing.ComputeHash256([]byte("budget_constraints")),
 	}
-	
+
 	return pk, vk, nil
 }
 
@@ -261,39 +261,39 @@ func (bc *BudgetCircuit) Prove(pk *ProvingKey, witness Witness) (*Proof, error) 
 	if !exists {
 		return nil, ErrInvalidWitness
 	}
-	
+
 	delta, exists := witness.Values["delta"]
 	if !exists {
 		return nil, ErrInvalidWitness
 	}
-	
+
 	newBudget, exists := witness.Values["new_budget"]
 	if !exists {
 		return nil, ErrInvalidWitness
 	}
-	
+
 	// Verify: new = old - delta
 	expected := new(big.Int).Sub(oldBudget, delta)
 	if expected.Cmp(newBudget) != 0 {
 		return nil, ErrConstraintFailed
 	}
-	
+
 	// Verify: new >= 0
 	if newBudget.Sign() < 0 {
 		return nil, ErrConstraintFailed
 	}
-	
+
 	// Generate proof
 	commitment := hashing.ComputeHash256(append(
 		oldBudget.Bytes(),
 		append(delta.Bytes(), newBudget.Bytes()...)...,
 	))
-	
+
 	challenge := hashing.ComputeHash256(append(commitment, pk.Parameters...))
 	response := hashing.ComputeHash256(append(newBudget.Bytes(), challenge...))
-	
+
 	bc.log.Debug("Budget proof generated")
-	
+
 	return &Proof{
 		Commitment: commitment,
 		Challenge:  challenge,
@@ -329,22 +329,22 @@ func (fc *FrequencyCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 		// counter_after <= cap
 		{Type: "comparison", Left: "counter_after", Right: "cap"},
 	}
-	
+
 	params := make([]byte, 32)
 	rand.Read(params)
-	
+
 	pk := &ProvingKey{
 		CircuitID:   "frequency_v1",
 		Constraints: constraints,
 		Parameters:  params,
 	}
-	
+
 	vk := &VerifyingKey{
 		CircuitID:      "frequency_v1",
 		PublicParams:   params[:16],
 		ConstraintHash: hashing.ComputeHash256([]byte("frequency_constraints")),
 	}
-	
+
 	return pk, vk, nil
 }
 
@@ -354,35 +354,35 @@ func (fc *FrequencyCircuit) Prove(pk *ProvingKey, witness Witness) (*Proof, erro
 	if !exists {
 		return nil, ErrInvalidWitness
 	}
-	
+
 	counterAfter, exists := witness.Values["counter_after"]
 	if !exists {
 		return nil, ErrInvalidWitness
 	}
-	
+
 	// Verify: after = before + 1
 	expected := new(big.Int).Add(counterBefore, big.NewInt(1))
 	if expected.Cmp(counterAfter) != 0 {
 		return nil, ErrConstraintFailed
 	}
-	
+
 	// Verify: after <= cap
 	capBig := big.NewInt(int64(fc.Cap))
 	if counterAfter.Cmp(capBig) > 0 {
 		return nil, ErrConstraintFailed
 	}
-	
+
 	// Generate proof
 	commitment := hashing.ComputeHash256(append(
 		counterBefore.Bytes(),
 		counterAfter.Bytes()...,
 	))
-	
+
 	challenge := hashing.ComputeHash256(append(commitment, pk.Parameters...))
 	response := hashing.ComputeHash256(append(counterAfter.Bytes(), challenge...))
-	
+
 	fc.log.Debug("Frequency proof generated")
-	
+
 	return &Proof{
 		Commitment: commitment,
 		Challenge:  challenge,

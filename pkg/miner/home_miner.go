@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"sync"
 	"time"
-
 	// "github.com/gorilla/websocket"
 	// "github.com/shopspring/decimal"
 )
@@ -50,15 +49,15 @@ type HomeMiner struct {
 	TunnelType    TunnelType
 	LocalPort     int
 	PublicURL     string
-	
+
 	// Performance
-	CacheSize     int64
-	AdCache       *AdCache
-	Earnings      *MinerEarnings
-	
+	CacheSize int64
+	AdCache   *AdCache
+	Earnings  *MinerEarnings
+
 	// Stats
-	stats         map[string]interface{}
-	mu            sync.RWMutex
+	stats map[string]interface{}
+	mu    sync.RWMutex
 }
 
 // AdCache manages cached ads
@@ -141,13 +140,13 @@ func (m *HomeMiner) Start() error {
 	if err := m.setupTunnel(); err != nil {
 		return fmt.Errorf("failed to setup tunnel: %w", err)
 	}
-	
+
 	// Start HTTP server
 	go m.startHTTPServer()
-	
+
 	// Connect to exchange
 	go m.connectToExchange()
-	
+
 	return nil
 }
 
@@ -168,14 +167,14 @@ func (m *HomeMiner) setupTunnel() error {
 
 // setupLocalXpose sets up LocalXpose tunnel
 func (m *HomeMiner) setupLocalXpose() error {
-	cmd := exec.Command("loclx", "tunnel", "http", 
+	cmd := exec.Command("loclx", "tunnel", "http",
 		"--port", fmt.Sprintf("%d", m.LocalPort))
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return err
 	}
-	
+
 	// Parse URL from output
 	m.PublicURL = string(output) // Simplified
 	return nil
@@ -184,21 +183,21 @@ func (m *HomeMiner) setupLocalXpose() error {
 // setupNgrok sets up ngrok tunnel
 func (m *HomeMiner) setupNgrok() error {
 	cmd := exec.Command("ngrok", "http", fmt.Sprintf("%d", m.LocalPort))
-	
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	
+
 	// Wait for ngrok to start
 	time.Sleep(2 * time.Second)
-	
+
 	// Get public URL from ngrok API
 	resp, err := http.Get("http://localhost:4040/api/tunnels")
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	// Parse response (simplified)
 	m.PublicURL = "https://example.ngrok.io"
 	return nil
@@ -209,7 +208,7 @@ func (m *HomeMiner) startHTTPServer() {
 	http.HandleFunc("/ad", m.serveAd)
 	http.HandleFunc("/health", m.healthCheck)
 	http.HandleFunc("/stats", m.getStats)
-	
+
 	addr := fmt.Sprintf(":%d", m.LocalPort)
 	http.ListenAndServe(addr, nil)
 }
@@ -231,9 +230,9 @@ func (m *HomeMiner) healthCheck(w http.ResponseWriter, r *http.Request) {
 func (m *HomeMiner) getStats(w http.ResponseWriter, r *http.Request) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(fmt.Sprintf(`{"id":"%s","earnings":"%s"}`, 
+	w.Write([]byte(fmt.Sprintf(`{"id":"%s","earnings":"%s"}`,
 		m.ID, m.Earnings.TotalEarnings.String())))
 }
 
@@ -248,21 +247,21 @@ func (m *HomeMiner) DetectHardware() *HardwareInfo {
 	hw := &HardwareInfo{
 		CPUCores: runtime.NumCPU(),
 	}
-	
+
 	// Detect memory (simplified)
 	hw.MemoryGB = 8 // Default
-	
+
 	// Detect disk (simplified)
 	hw.DiskGB = 100 // Default
-	
+
 	// Detect network speed (simplified)
 	hw.NetworkMbps = 100 // Default
-	
+
 	// Detect GPU (simplified)
 	if runtime.GOOS == "darwin" {
 		hw.GPU = "Apple Silicon"
 	}
-	
+
 	return hw
 }
 

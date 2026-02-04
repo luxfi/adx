@@ -46,9 +46,9 @@ type TokenBucket struct {
 
 // PrivacyToken represents an unlinkable token (Privacy Pass / Private State Token)
 type PrivacyToken struct {
-	Token     []byte // Blinded token
-	Proof     []byte // Redemption proof
-	Redeemed  bool
+	Token    []byte // Blinded token
+	Proof    []byte // Redemption proof
+	Redeemed bool
 }
 
 // NewFrequencyManager creates a new frequency manager
@@ -64,7 +64,7 @@ func NewFrequencyManager(logger log.Logger) *FrequencyManager {
 func (fm *FrequencyManager) RecordImpression(userID, campaignID string) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	key := userID + ":" + campaignID
 	counter, exists := fm.counters[key]
 	if !exists {
@@ -73,7 +73,7 @@ func (fm *FrequencyManager) RecordImpression(userID, campaignID string) error {
 		}
 		fm.counters[key] = counter
 	}
-	
+
 	counter.Count++
 	return nil
 }
@@ -82,13 +82,13 @@ func (fm *FrequencyManager) RecordImpression(userID, campaignID string) error {
 func (fm *FrequencyManager) GetImpressionCount(userID, campaignID string) uint32 {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
-	
+
 	key := userID + ":" + campaignID
 	counter, exists := fm.counters[key]
 	if !exists {
 		return 0
 	}
-	
+
 	return counter.Count
 }
 
@@ -100,10 +100,10 @@ func (fm *FrequencyManager) CheckAndIncrementCounter(
 ) (*FrequencyProof, error) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	key := deviceID + ":" + campaignID.String()
 	counter, exists := fm.counters[key]
-	
+
 	if !exists {
 		counter = &CampaignCounter{
 			CampaignID: campaignID,
@@ -113,23 +113,23 @@ func (fm *FrequencyManager) CheckAndIncrementCounter(
 		}
 		fm.counters[key] = counter
 	}
-	
+
 	// Check if cap exceeded
 	if counter.Count >= counter.Cap {
 		return nil, ErrFrequencyCapExceeded
 	}
-	
+
 	// Generate ZK proof that counter < cap
 	proof := fm.generateFrequencyProof(counter, false)
-	
+
 	// Increment counter
 	counter.Count++
-	
+
 	// Update epoch root
 	fm.updateEpochRoot()
-	
+
 	fm.log.Debug("Frequency check")
-	
+
 	return proof, nil
 }
 
@@ -141,12 +141,12 @@ func (fm *FrequencyManager) RedeemPrivacyToken(
 ) (*FrequencyProof, error) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	bucket, exists := fm.tokens[campaignID.String()]
 	if !exists {
 		return nil, ErrInvalidToken
 	}
-	
+
 	// Find and validate token
 	var foundToken *PrivacyToken
 	for i := range bucket.Tokens {
@@ -155,37 +155,37 @@ func (fm *FrequencyManager) RedeemPrivacyToken(
 			break
 		}
 	}
-	
+
 	if foundToken == nil {
 		return nil, ErrInvalidToken
 	}
-	
+
 	if foundToken.Redeemed {
 		return nil, errors.New("token already redeemed")
 	}
-	
+
 	// Verify redemption proof
 	if !fm.verifyTokenProof(token, proof) {
 		return nil, ErrInvalidToken
 	}
-	
+
 	// Mark as redeemed
 	foundToken.Redeemed = true
-	
+
 	// Generate frequency proof
 	freqProof := fm.generateTokenProof(bucket, token)
-	
+
 	fm.log.Debug("Token redeemed")
-	
+
 	return freqProof, nil
 }
 
 // FrequencyProof proves frequency cap compliance without revealing counts
 type FrequencyProof struct {
-	Type       string `json:"type"` // "counter" or "token"
-	FreqRoot   []byte `json:"freq_root"`
-	Proof      []byte `json:"proof"`
-	EpochID    uint32 `json:"epoch_id"`
+	Type     string `json:"type"` // "counter" or "token"
+	FreqRoot []byte `json:"freq_root"`
+	Proof    []byte `json:"proof"`
+	EpochID  uint32 `json:"epoch_id"`
 }
 
 // generateFrequencyProof creates a ZK proof of frequency compliance
@@ -193,20 +193,20 @@ func (fm *FrequencyManager) generateFrequencyProof(counter *CampaignCounter, exc
 	// Simplified proof generation
 	// In production, use actual ZK proving system (Halo2/Plonky3)
 	// Proves: counter.Count < counter.Cap
-	
+
 	proofData := []byte{
 		byte(counter.Count >> 8),
 		byte(counter.Count),
 		byte(counter.Cap >> 8),
 		byte(counter.Cap),
 	}
-	
+
 	if exceeded {
 		proofData = append(proofData, 0xFF)
 	} else {
 		proofData = append(proofData, 0x00)
 	}
-	
+
 	return &FrequencyProof{
 		Type:     "counter",
 		FreqRoot: fm.epochRoot,
@@ -219,9 +219,9 @@ func (fm *FrequencyManager) generateFrequencyProof(counter *CampaignCounter, exc
 func (fm *FrequencyManager) generateTokenProof(bucket *TokenBucket, token []byte) *FrequencyProof {
 	// Simplified proof generation
 	// Proves: token is valid and not previously redeemed
-	
+
 	proofData := append(token[:16], byte(bucket.EpochID))
-	
+
 	return &FrequencyProof{
 		Type:     "token",
 		FreqRoot: fm.epochRoot,
@@ -242,11 +242,11 @@ func (fm *FrequencyManager) updateEpochRoot() {
 	// Create merkle root of all counters
 	// Simplified to hash of counter count
 	rootData := make([]byte, 0)
-	
+
 	for _, counter := range fm.counters {
 		rootData = append(rootData, byte(counter.Count))
 	}
-	
+
 	fm.epochRoot = crypto.CreateCommitment(rootData)
 }
 
@@ -264,29 +264,29 @@ func (fm *FrequencyManager) IssueTokens(
 ) ([]PrivacyToken, error) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	bucket := &TokenBucket{
 		CampaignID: campaignID,
 		Tokens:     make([]PrivacyToken, count),
 		MaxTokens:  count,
 		EpochID:    fm.getCurrentEpoch(),
 	}
-	
+
 	// Generate unlinkable tokens
 	for i := uint32(0); i < count; i++ {
 		tokenData := make([]byte, 32)
 		rand.Read(tokenData)
-		
+
 		bucket.Tokens[i] = PrivacyToken{
 			Token:    tokenData,
 			Proof:    crypto.CreateCommitment(tokenData),
 			Redeemed: false,
 		}
 	}
-	
+
 	fm.tokens[campaignID.String()] = bucket
-	
+
 	fm.log.Debug("Tokens issued")
-	
+
 	return bucket.Tokens, nil
 }

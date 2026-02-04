@@ -14,59 +14,59 @@ import (
 // AnalyticsTracker tracks all ADX metrics and events
 type AnalyticsTracker struct {
 	// Real-time counters
-	TotalRequests      atomic.Uint64
-	TotalImpressions   atomic.Uint64
-	TotalClicks        atomic.Uint64
-	TotalCompletions   atomic.Uint64
-	TotalRevenue       atomic.Uint64 // In microcents
-	
+	TotalRequests    atomic.Uint64
+	TotalImpressions atomic.Uint64
+	TotalClicks      atomic.Uint64
+	TotalCompletions atomic.Uint64
+	TotalRevenue     atomic.Uint64 // In microcents
+
 	// Performance metrics
-	AverageLatency     atomic.Uint64 // In microseconds
-	P95Latency         atomic.Uint64
-	P99Latency         atomic.Uint64
-	
+	AverageLatency atomic.Uint64 // In microseconds
+	P95Latency     atomic.Uint64
+	P99Latency     atomic.Uint64
+
 	// Fill rates
-	FillRate           atomic.Uint64 // Percentage * 100
-	ViewabilityRate    atomic.Uint64
-	CompletionRate     atomic.Uint64
-	
+	FillRate        atomic.Uint64 // Percentage * 100
+	ViewabilityRate atomic.Uint64
+	CompletionRate  atomic.Uint64
+
 	// Pod metrics for CTV
-	PodMetrics         *PodMetrics
-	
+	PodMetrics *PodMetrics
+
 	// Time series data
-	TimeSeries         *TimeSeriesData
-	
+	TimeSeries *TimeSeriesData
+
 	// Publisher metrics
-	PublisherMetrics   map[string]*PublisherStats
-	
+	PublisherMetrics map[string]*PublisherStats
+
 	// DSP metrics
-	DSPMetrics         map[string]*DSPStats
-	
+	DSPMetrics map[string]*DSPStats
+
 	// Miner metrics
-	MinerMetrics       map[string]*MinerStats
-	
+	MinerMetrics map[string]*MinerStats
+
 	// Mutex for maps
-	mu                 sync.RWMutex
-	
+	mu sync.RWMutex
+
 	// Event stream for real-time analytics
-	EventStream        chan *Event
-	
+	EventStream chan *Event
+
 	// Storage backend (FoundationDB when ready)
-	storage            StorageBackend
+	storage StorageBackend
 }
 
 // PodMetrics tracks CTV ad pod performance
 type PodMetrics struct {
-	TotalPods          atomic.Uint64
-	AveragePodSize     atomic.Uint64
-	PodFillRate        atomic.Uint64
-	PodCompletionRate  atomic.Uint64
-	AveragePodCPM      atomic.Uint64
-	
+	TotalPods         atomic.Uint64
+	AveragePodSize    atomic.Uint64
+	PodFillRate       atomic.Uint64
+	PodCompletionRate atomic.Uint64
+	AveragePodCPM     atomic.Uint64
+
 	// Break type distribution
-	PrerollCount       atomic.Uint64
-	MidrollCount       atomic.Uint64
-	PostrollCount      atomic.Uint64
+	PrerollCount  atomic.Uint64
+	MidrollCount  atomic.Uint64
+	PostrollCount atomic.Uint64
 }
 
 // TimeSeriesData stores time-bucketed metrics
@@ -78,14 +78,14 @@ type TimeSeriesData struct {
 
 // MetricBucket represents metrics for a time period
 type MetricBucket struct {
-	Timestamp    time.Time
-	Requests     uint64
-	Impressions  uint64
-	Revenue      decimal.Decimal
-	FillRate     float64
-	AvgLatency   time.Duration
-	UniqueUsers  map[string]bool
-	TopDomains   map[string]uint64
+	Timestamp   time.Time
+	Requests    uint64
+	Impressions uint64
+	Revenue     decimal.Decimal
+	FillRate    float64
+	AvgLatency  time.Duration
+	UniqueUsers map[string]bool
+	TopDomains  map[string]uint64
 }
 
 // PublisherStats tracks per-publisher metrics
@@ -102,39 +102,39 @@ type PublisherStats struct {
 
 // PlacementStats tracks individual placement performance
 type PlacementStats struct {
-	PlacementID  string
-	Impressions  uint64
-	Clicks       uint64
-	CTR          float64
-	Revenue      decimal.Decimal
+	PlacementID string
+	Impressions uint64
+	Clicks      uint64
+	CTR         float64
+	Revenue     decimal.Decimal
 }
 
 // DSPStats tracks demand-side platform performance
 type DSPStats struct {
-	DSPID            string
-	Name             string
-	TotalBids        uint64
-	WinningBids      uint64
-	WinRate          float64
-	AverageBid       decimal.Decimal
-	TotalSpend       decimal.Decimal
-	ResponseTime     time.Duration
-	TimeoutRate      float64
-	Categories       map[string]uint64
+	DSPID        string
+	Name         string
+	TotalBids    uint64
+	WinningBids  uint64
+	WinRate      float64
+	AverageBid   decimal.Decimal
+	TotalSpend   decimal.Decimal
+	ResponseTime time.Duration
+	TimeoutRate  float64
+	Categories   map[string]uint64
 }
 
 // MinerStats tracks home miner performance
 type MinerStats struct {
-	MinerID          string
-	WalletAddress    string
-	Location         string
-	TotalServed      uint64
-	TotalBandwidth   uint64 // In bytes
-	Uptime           time.Duration
-	Earnings         *big.Int
-	QualityScore     float64
-	AverageLatency   time.Duration
-	ErrorRate        float64
+	MinerID        string
+	WalletAddress  string
+	Location       string
+	TotalServed    uint64
+	TotalBandwidth uint64 // In bytes
+	Uptime         time.Duration
+	Earnings       *big.Int
+	QualityScore   float64
+	AverageLatency time.Duration
+	ErrorRate      float64
 }
 
 // Event represents an analytics event
@@ -157,19 +157,19 @@ type Event struct {
 type EventType string
 
 const (
-	EventRequest     EventType = "request"
-	EventBid         EventType = "bid"
-	EventWin         EventType = "win"
-	EventImpression  EventType = "impression"
-	EventClick       EventType = "click"
-	EventComplete    EventType = "complete"
-	EventPodStart    EventType = "pod_start"
-	EventPodEnd      EventType = "pod_end"
-	EventError       EventType = "error"
-	EventTimeout     EventType = "timeout"
-	EventMinerJoin   EventType = "miner_join"
-	EventMinerLeave  EventType = "miner_leave"
-	EventPayout      EventType = "payout"
+	EventRequest    EventType = "request"
+	EventBid        EventType = "bid"
+	EventWin        EventType = "win"
+	EventImpression EventType = "impression"
+	EventClick      EventType = "click"
+	EventComplete   EventType = "complete"
+	EventPodStart   EventType = "pod_start"
+	EventPodEnd     EventType = "pod_end"
+	EventError      EventType = "error"
+	EventTimeout    EventType = "timeout"
+	EventMinerJoin  EventType = "miner_join"
+	EventMinerLeave EventType = "miner_leave"
+	EventPayout     EventType = "payout"
 )
 
 // StorageBackend interface for persisting analytics
@@ -216,7 +216,7 @@ func NewAnalyticsTracker() *AnalyticsTracker {
 // TrackRequest tracks an incoming bid request
 func (a *AnalyticsTracker) TrackRequest(request *openrtb2.BidRequest) {
 	a.TotalRequests.Add(1)
-	
+
 	event := &Event{
 		Type:        EventRequest,
 		Timestamp:   time.Now(),
@@ -230,14 +230,14 @@ func (a *AnalyticsTracker) TrackRequest(request *openrtb2.BidRequest) {
 			"pod":       a.isPod(request),
 		},
 	}
-	
+
 	// Send to event stream
 	select {
 	case a.EventStream <- event:
 	default:
 		// Buffer full, drop event
 	}
-	
+
 	// Update time series
 	a.updateTimeSeries(event)
 }
@@ -246,7 +246,7 @@ func (a *AnalyticsTracker) TrackRequest(request *openrtb2.BidRequest) {
 func (a *AnalyticsTracker) TrackResponse(response *openrtb2.BidResponse, latency time.Duration) {
 	if response != nil && len(response.SeatBid) > 0 {
 		a.TotalImpressions.Add(1)
-		
+
 		// Update fill rate
 		totalReq := a.TotalRequests.Load()
 		totalImp := a.TotalImpressions.Load()
@@ -254,7 +254,7 @@ func (a *AnalyticsTracker) TrackResponse(response *openrtb2.BidResponse, latency
 			newFillRate := (totalImp * 10000) / totalReq // Percentage * 100
 			a.FillRate.Store(newFillRate)
 		}
-		
+
 		// Track revenue
 		for _, seatBid := range response.SeatBid {
 			for _, bid := range seatBid.Bid {
@@ -263,7 +263,7 @@ func (a *AnalyticsTracker) TrackResponse(response *openrtb2.BidResponse, latency
 			}
 		}
 	}
-	
+
 	// Update latency metrics
 	latencyMicros := uint64(latency.Microseconds())
 	a.updateLatencyMetrics(latencyMicros)
@@ -279,7 +279,7 @@ func (a *AnalyticsTracker) TrackImpression(impressionID, publisherID, minerID st
 		MinerID:      minerID,
 		Price:        price,
 	}
-	
+
 	// Update publisher metrics
 	a.mu.Lock()
 	if pub, ok := a.PublisherMetrics[publisherID]; ok {
@@ -287,12 +287,12 @@ func (a *AnalyticsTracker) TrackImpression(impressionID, publisherID, minerID st
 		pub.TotalRevenue.Add(pub.TotalRevenue, price.BigInt())
 	}
 	a.mu.Unlock()
-	
+
 	// Update miner metrics
 	if minerID != "" {
 		a.updateMinerMetrics(minerID, event)
 	}
-	
+
 	// Store event
 	a.storage.Store(event)
 }
@@ -301,7 +301,7 @@ func (a *AnalyticsTracker) TrackImpression(impressionID, publisherID, minerID st
 func (a *AnalyticsTracker) TrackPodMetrics(podID string, podSize int, completed bool) {
 	a.PodMetrics.TotalPods.Add(1)
 	a.PodMetrics.AveragePodSize.Store(uint64(podSize))
-	
+
 	if completed {
 		currentRate := a.PodMetrics.PodCompletionRate.Load()
 		totalPods := a.PodMetrics.TotalPods.Load()
@@ -322,9 +322,9 @@ func (a *AnalyticsTracker) GetRealTimeMetrics() map[string]interface{} {
 		"p95_latency_ms":    float64(a.P95Latency.Load()) / 1000.0,
 		"p99_latency_ms":    float64(a.P99Latency.Load()) / 1000.0,
 		"pod_metrics": map[string]interface{}{
-			"total_pods":       a.PodMetrics.TotalPods.Load(),
-			"avg_pod_size":     a.PodMetrics.AveragePodSize.Load(),
-			"completion_rate":  float64(a.PodMetrics.PodCompletionRate.Load()) / 100.0,
+			"total_pods":      a.PodMetrics.TotalPods.Load(),
+			"avg_pod_size":    a.PodMetrics.AveragePodSize.Load(),
+			"completion_rate": float64(a.PodMetrics.PodCompletionRate.Load()) / 100.0,
 		},
 	}
 }
@@ -334,11 +334,11 @@ func (a *AnalyticsTracker) GetPublisherReport(publisherID string, timeRange Time
 	a.mu.RLock()
 	stats, ok := a.PublisherMetrics[publisherID]
 	a.mu.RUnlock()
-	
+
 	if !ok {
 		return nil, fmt.Errorf("publisher %s not found", publisherID)
 	}
-	
+
 	// Query historical data
 	events, err := a.storage.Query(QueryFilter{
 		StartTime:    timeRange.Start,
@@ -348,7 +348,7 @@ func (a *AnalyticsTracker) GetPublisherReport(publisherID string, timeRange Time
 	if err != nil {
 		return nil, err
 	}
-	
+
 	report := &PublisherReport{
 		PublisherID:      publisherID,
 		TimeRange:        timeRange,
@@ -358,7 +358,7 @@ func (a *AnalyticsTracker) GetPublisherReport(publisherID string, timeRange Time
 		eCPM:             stats.eCPM,
 		Events:           events,
 	}
-	
+
 	return report, nil
 }
 
@@ -417,10 +417,10 @@ func (a *AnalyticsTracker) isPod(request *openrtb2.BidRequest) bool {
 
 func (a *AnalyticsTracker) updateTimeSeries(event *Event) {
 	bucket := time.Now().Unix() / int64(a.TimeSeries.BucketSize.Seconds())
-	
+
 	a.TimeSeries.mu.Lock()
 	defer a.TimeSeries.mu.Unlock()
-	
+
 	if _, ok := a.TimeSeries.Buckets[bucket]; !ok {
 		a.TimeSeries.Buckets[bucket] = &MetricBucket{
 			Timestamp:   time.Unix(bucket*int64(a.TimeSeries.BucketSize.Seconds()), 0),
@@ -428,7 +428,7 @@ func (a *AnalyticsTracker) updateTimeSeries(event *Event) {
 			TopDomains:  make(map[string]uint64),
 		}
 	}
-	
+
 	a.TimeSeries.Buckets[bucket].Requests++
 }
 
@@ -440,7 +440,7 @@ func (a *AnalyticsTracker) updateLatencyMetrics(latencyMicros uint64) {
 		newAvg := ((current * (count - 1)) + latencyMicros) / count
 		a.AverageLatency.Store(newAvg)
 	}
-	
+
 	// Update P95/P99 (simplified)
 	if latencyMicros > a.P95Latency.Load() {
 		a.P95Latency.Store(latencyMicros)
@@ -453,14 +453,14 @@ func (a *AnalyticsTracker) updateLatencyMetrics(latencyMicros uint64) {
 func (a *AnalyticsTracker) updateMinerMetrics(minerID string, event *Event) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	
+
 	if _, ok := a.MinerMetrics[minerID]; !ok {
 		a.MinerMetrics[minerID] = &MinerStats{
 			MinerID:  minerID,
 			Earnings: big.NewInt(0),
 		}
 	}
-	
+
 	a.MinerMetrics[minerID].TotalServed++
 	if event.Price.GreaterThan(decimal.Zero) {
 		earnings := event.Price.Mul(decimal.NewFromFloat(0.1)) // 10% to miner
@@ -517,7 +517,7 @@ func (s *InMemoryStorage) Store(event *Event) error {
 func (s *InMemoryStorage) Query(filter QueryFilter) ([]*Event, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	results := make([]*Event, 0)
 	for i := range s.events {
 		if s.matchesFilter(&s.events[i], filter) {
@@ -527,7 +527,7 @@ func (s *InMemoryStorage) Query(filter QueryFilter) ([]*Event, error) {
 			}
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -545,7 +545,7 @@ func (s *InMemoryStorage) matchesFilter(event *Event, filter QueryFilter) bool {
 	if !event.Timestamp.After(filter.StartTime) || !event.Timestamp.Before(filter.EndTime) {
 		return false
 	}
-	
+
 	if len(filter.EventTypes) > 0 {
 		found := false
 		for _, t := range filter.EventTypes {
@@ -558,7 +558,7 @@ func (s *InMemoryStorage) matchesFilter(event *Event, filter QueryFilter) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -600,6 +600,6 @@ adx_pod_completion_rate %.4f
 		a.PodMetrics.TotalPods.Load(),
 		float64(a.PodMetrics.PodCompletionRate.Load())/100.0,
 	)
-	
+
 	return metrics
 }

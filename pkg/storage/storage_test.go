@@ -216,4 +216,3 @@ func TestPublisherStats(t *testing.T) {
 		t.Errorf("Expected 2 unique users, got %d", len(stats.UniqueUsers))
 	}
 }
-

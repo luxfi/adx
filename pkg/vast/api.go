@@ -41,36 +41,36 @@ type VASTRequest struct {
 	IPV6 string `form:"ipv6" json:"ipv6"` // IPv6 address
 
 	// Targeting Parameters
-	AdCount  int    `form:"adcount" default:"1" json:"adcount"`         // Number of ads to return (1-20)
-	Locale   string `form:"locale" json:"locale"`                       // Device locale (e.g., en_US)
-	Lat      string `form:"lat" json:"lat"`                             // Latitude
-	Long     string `form:"long" json:"long"`                           // Longitude
-	Gender   string `form:"gender" json:"gender"`                       // m, f, o (other)
-	Age      int    `form:"age" json:"age"`                             // User age
-	Keywords string `form:"keywords" json:"keywords"`                   // Comma-separated keywords
-	BundleID string `form:"bundleid" json:"bundleid"`                   // App bundle ID
-	AppVer   string `form:"appver" json:"appver"`                       // App version
-	Secure   int    `form:"secure" default:"1" json:"secure"`          // HTTPS (1) or HTTP (0)
+	AdCount  int    `form:"adcount" default:"1" json:"adcount"` // Number of ads to return (1-20)
+	Locale   string `form:"locale" json:"locale"`               // Device locale (e.g., en_US)
+	Lat      string `form:"lat" json:"lat"`                     // Latitude
+	Long     string `form:"long" json:"long"`                   // Longitude
+	Gender   string `form:"gender" json:"gender"`               // m, f, o (other)
+	Age      int    `form:"age" json:"age"`                     // User age
+	Keywords string `form:"keywords" json:"keywords"`           // Comma-separated keywords
+	BundleID string `form:"bundleid" json:"bundleid"`           // App bundle ID
+	AppVer   string `form:"appver" json:"appver"`               // App version
+	Secure   int    `form:"secure" default:"1" json:"secure"`   // HTTPS (1) or HTTP (0)
 
 	// Privacy Compliance
-	COPPA        int    `form:"coppa" json:"coppa"`               // COPPA flag (0=NO, 1=YES)
-	USPrivacy    string `form:"usprivacy" json:"usprivacy"`       // CCPA string (e.g., "1YNN")
-	UserConsent  string `form:"userconsent" json:"userconsent"`   // GDPR consent string
-	GDPR         int    `form:"gdpr" json:"gdpr"`                 // GDPR applies (0=NO, 1=YES)
+	COPPA       int    `form:"coppa" json:"coppa"`             // COPPA flag (0=NO, 1=YES)
+	USPrivacy   string `form:"usprivacy" json:"usprivacy"`     // CCPA string (e.g., "1YNN")
+	UserConsent string `form:"userconsent" json:"userconsent"` // GDPR consent string
+	GDPR        int    `form:"gdpr" json:"gdpr"`               // GDPR applies (0=NO, 1=YES)
 
 	// Video/CTV Specific
-	RV              string `form:"rv" json:"rv"`                           // Rewarded video flag
-	DH              string `form:"dh" json:"dh"`                           // Device height in pixels
-	DW              string `form:"dw" json:"dw"`                           // Device width in pixels
-	MinVideoDur     int    `form:"mindur" json:"mindur"`                   // Min video duration
-	MaxVideoDur     int    `form:"maxdur" json:"maxdur"`                   // Max video duration
-	StartDelay      int    `form:"startdelay" json:"startdelay"`           // Video start delay
-	Linearity       int    `form:"linearity" json:"linearity"`             // Linear=1, NonLinear=2
-	Skip            int    `form:"skip" json:"skip"`                       // Skippable (0=NO, 1=YES)
-	SkipMin         int    `form:"skipmin" json:"skipmin"`                 // Skip button delay
-	SkipAfter       int    `form:"skipafter" json:"skipafter"`             // Force skip after seconds
-	Playbackmethod  []int  `form:"playbackmethod" json:"playbackmethod"`   // Playback methods
-	PlayerSize      string `form:"playersize" json:"playersize"`           // WxH format
+	RV             string `form:"rv" json:"rv"`                         // Rewarded video flag
+	DH             string `form:"dh" json:"dh"`                         // Device height in pixels
+	DW             string `form:"dw" json:"dw"`                         // Device width in pixels
+	MinVideoDur    int    `form:"mindur" json:"mindur"`                 // Min video duration
+	MaxVideoDur    int    `form:"maxdur" json:"maxdur"`                 // Max video duration
+	StartDelay     int    `form:"startdelay" json:"startdelay"`         // Video start delay
+	Linearity      int    `form:"linearity" json:"linearity"`           // Linear=1, NonLinear=2
+	Skip           int    `form:"skip" json:"skip"`                     // Skippable (0=NO, 1=YES)
+	SkipMin        int    `form:"skipmin" json:"skipmin"`               // Skip button delay
+	SkipAfter      int    `form:"skipafter" json:"skipafter"`           // Force skip after seconds
+	Playbackmethod []int  `form:"playbackmethod" json:"playbackmethod"` // Playback methods
+	PlayerSize     string `form:"playersize" json:"playersize"`         // WxH format
 
 	// OMID (Open Measurement)
 	OMIDPN string `form:"omidpn" json:"omidpn"` // OMID Partner name
@@ -82,39 +82,39 @@ type VASTRequest struct {
 	SKAdNetIDs     []string `form:"skadnetids" json:"skadnetids"`           // DSP-specific SKAdNetwork IDs
 
 	// Contextual Data
-	InputLanguage    string `form:"inputlanguage" json:"inputlanguage"`       // Keyboard languages
-	Battery          string `form:"battery" json:"battery"`                   // Battery percentage
-	SessionDuration  string `form:"sessionduration" json:"sessionduration"`   // Session time in seconds
-	AgeRating        string `form:"agerating" json:"agerating"`               // Content rating
-	PubDomain        string `form:"pub_domain" json:"pub_domain"`             // Publisher domain
+	InputLanguage   string `form:"inputlanguage" json:"inputlanguage"`     // Keyboard languages
+	Battery         string `form:"battery" json:"battery"`                 // Battery percentage
+	SessionDuration string `form:"sessionduration" json:"sessionduration"` // Session time in seconds
+	AgeRating       string `form:"agerating" json:"agerating"`             // Content rating
+	PubDomain       string `form:"pub_domain" json:"pub_domain"`           // Publisher domain
 
 	// CTV/OTT Specific
-	ContentID        string `form:"contentid" json:"contentid"`               // Content ID
-	ContentTitle     string `form:"contenttitle" json:"contenttitle"`         // Content title
-	ContentSeries    string `form:"contentseries" json:"contentseries"`       // Series name
-	ContentSeason    string `form:"contentseason" json:"contentseason"`       // Season number
-	ContentEpisode   string `form:"contentepisode" json:"contentepisode"`     // Episode number
-	ContentGenre     string `form:"contentgenre" json:"contentgenre"`         // Content genre
-	ContentRating    string `form:"contentrating" json:"contentrating"`       // Content rating
-	ContentLength    int    `form:"contentlen" json:"contentlen"`             // Content length in seconds
-	ContentLiveStream int    `form:"livestream" json:"livestream"`             // Live stream flag
-	ContentLanguage  string `form:"contentlang" json:"contentlang"`           // Content language
+	ContentID         string `form:"contentid" json:"contentid"`           // Content ID
+	ContentTitle      string `form:"contenttitle" json:"contenttitle"`     // Content title
+	ContentSeries     string `form:"contentseries" json:"contentseries"`   // Series name
+	ContentSeason     string `form:"contentseason" json:"contentseason"`   // Season number
+	ContentEpisode    string `form:"contentepisode" json:"contentepisode"` // Episode number
+	ContentGenre      string `form:"contentgenre" json:"contentgenre"`     // Content genre
+	ContentRating     string `form:"contentrating" json:"contentrating"`   // Content rating
+	ContentLength     int    `form:"contentlen" json:"contentlen"`         // Content length in seconds
+	ContentLiveStream int    `form:"livestream" json:"livestream"`         // Live stream flag
+	ContentLanguage   string `form:"contentlang" json:"contentlang"`       // Content language
 
 	// Ad Pod Support (CTV)
-	PodID            string `form:"podid" json:"podid"`                       // Ad pod ID
-	PodSequence      int    `form:"podseq" json:"podseq"`                     // Position in pod
-	TotalPods        int    `form:"totalpods" json:"totalpods"`               // Total pods in content
-	PodMaxDuration   int    `form:"podmaxdur" json:"podmaxdur"`               // Max pod duration
-	PodMinAds        int    `form:"podminads" json:"podminads"`               // Min ads per pod
-	PodMaxAds        int    `form:"podmaxads" json:"podmaxads"`               // Max ads per pod
+	PodID          string `form:"podid" json:"podid"`         // Ad pod ID
+	PodSequence    int    `form:"podseq" json:"podseq"`       // Position in pod
+	TotalPods      int    `form:"totalpods" json:"totalpods"` // Total pods in content
+	PodMaxDuration int    `form:"podmaxdur" json:"podmaxdur"` // Max pod duration
+	PodMinAds      int    `form:"podminads" json:"podminads"` // Min ads per pod
+	PodMaxAds      int    `form:"podmaxads" json:"podmaxads"` // Max ads per pod
 
 	// Blockchain Specific (Lux ADX Extensions)
-	WalletAddress    string `form:"wallet" json:"wallet"`                     // User wallet for rewards
-	ChainID          int    `form:"chainid" json:"chainid"`                   // Blockchain ID
-	SmartContract    string `form:"contract" json:"contract"`                 // Smart contract address
-	OnChainTracking  int    `form:"onchain" json:"onchain"`                   // On-chain tracking (0=NO, 1=YES)
-	DecentralizedID  string `form:"did" json:"did"`                           // Decentralized ID
-	ProofOfView      string `form:"pov" json:"pov"`                           // Proof of view hash
+	WalletAddress   string `form:"wallet" json:"wallet"`     // User wallet for rewards
+	ChainID         int    `form:"chainid" json:"chainid"`   // Blockchain ID
+	SmartContract   string `form:"contract" json:"contract"` // Smart contract address
+	OnChainTracking int    `form:"onchain" json:"onchain"`   // On-chain tracking (0=NO, 1=YES)
+	DecentralizedID string `form:"did" json:"did"`           // Decentralized ID
+	ProofOfView     string `form:"pov" json:"pov"`           // Proof of view hash
 }
 
 // VASTHandler handles VAST API requests with full parameter support
@@ -129,7 +129,7 @@ type VASTHandler struct {
 // HandleVASTRequest processes VAST API requests
 func (h *VASTHandler) HandleVASTRequest(c *gin.Context) {
 	var req VASTRequest
-	
+
 	// Bind query parameters
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.XML(http.StatusBadRequest, VASTError{
@@ -261,19 +261,19 @@ func (h *VASTHandler) buildOpenRTBRequest(req *VASTRequest) *OpenRTBRequest {
 
 	// Device information
 	rtb.Device = Device{
-		UA:          req.UA,
-		IP:          req.IP,
-		IPv6:        req.IPV6,
-		DeviceType:  h.getDeviceType(req.DeviceModel),
-		Make:        h.getDeviceMake(req.DeviceModel),
-		Model:       req.DeviceModel,
-		OS:          req.OS,
-		OSV:         req.OSVer,
-		Language:    req.Locale,
-		IFA:         h.getIFA(req),
-		DNT:         req.DNT,
-		LMT:         req.DNT,
-		Geo:         Geo{},
+		UA:         req.UA,
+		IP:         req.IP,
+		IPv6:       req.IPV6,
+		DeviceType: h.getDeviceType(req.DeviceModel),
+		Make:       h.getDeviceMake(req.DeviceModel),
+		Model:      req.DeviceModel,
+		OS:         req.OS,
+		OSV:        req.OSVer,
+		Language:   req.Locale,
+		IFA:        h.getIFA(req),
+		DNT:        req.DNT,
+		LMT:        req.DNT,
+		Geo:        Geo{},
 	}
 
 	// Handle device dimensions
@@ -321,16 +321,16 @@ func (h *VASTHandler) buildOpenRTBRequest(req *VASTRequest) *OpenRTBRequest {
 	// Content information for CTV
 	if req.ContentID != "" {
 		rtb.App.Content = Content{
-			ID:       req.ContentID,
-			Title:    req.ContentTitle,
-			Series:   req.ContentSeries,
-			Season:   req.ContentSeason,
-			Episode:  req.ContentEpisode,
-			Genre:    req.ContentGenre,
-			Rating:   req.ContentRating,
-			Len:      req.ContentLength,
+			ID:         req.ContentID,
+			Title:      req.ContentTitle,
+			Series:     req.ContentSeries,
+			Season:     req.ContentSeason,
+			Episode:    req.ContentEpisode,
+			Genre:      req.ContentGenre,
+			Rating:     req.ContentRating,
+			Len:        req.ContentLength,
 			LiveStream: req.ContentLiveStream,
-			Language: req.ContentLanguage,
+			Language:   req.ContentLanguage,
 		}
 	}
 
@@ -354,12 +354,12 @@ func (h *VASTHandler) buildOpenRTBRequest(req *VASTRequest) *OpenRTBRequest {
 	if req.WalletAddress != "" {
 		rtb.Ext = map[string]interface{}{
 			"blockchain": map[string]interface{}{
-				"wallet":    req.WalletAddress,
-				"chainid":   req.ChainID,
-				"contract":  req.SmartContract,
-				"onchain":   req.OnChainTracking == 1,
-				"did":       req.DecentralizedID,
-				"pov":       req.ProofOfView,
+				"wallet":   req.WalletAddress,
+				"chainid":  req.ChainID,
+				"contract": req.SmartContract,
+				"onchain":  req.OnChainTracking == 1,
+				"did":      req.DecentralizedID,
+				"pov":      req.ProofOfView,
 			},
 		}
 	}
@@ -566,18 +566,18 @@ func (h *VASTHandler) buildTrackingURL(event string, req *VASTRequest, bid *Bid)
 	base := "https://track.lux.network/v1/event"
 	params := fmt.Sprintf("?event=%s&imp=%s&zone=%d&app=%s&bid=%s",
 		event, bid.ImpID, req.ZoneID, req.AppToken, bid.ID)
-	
+
 	// Add blockchain tracking if enabled
 	if req.OnChainTracking == 1 && req.WalletAddress != "" {
 		params += fmt.Sprintf("&wallet=%s&chain=%d", req.WalletAddress, req.ChainID)
 	}
-	
+
 	return base + params
 }
 
 func (h *VASTHandler) getMediaFilesForLayout(layout string, videoURL string) []MediaFile {
 	files := []MediaFile{}
-	
+
 	switch layout {
 	case "s": // Small - 320x180
 		files = append(files, MediaFile{
@@ -626,7 +626,7 @@ func (h *VASTHandler) getMediaFilesForLayout(layout string, videoURL string) []M
 			URL:      videoURL,
 		})
 	}
-	
+
 	// Add WebM alternative for better compatibility
 	for _, mp4File := range files {
 		webmFile := mp4File
@@ -634,7 +634,7 @@ func (h *VASTHandler) getMediaFilesForLayout(layout string, videoURL string) []M
 		webmFile.URL = strings.Replace(videoURL, ".mp4", ".webm", 1)
 		files = append(files, webmFile)
 	}
-	
+
 	// Add HLS for streaming
 	files = append(files, MediaFile{
 		Delivery: "streaming",
@@ -643,23 +643,23 @@ func (h *VASTHandler) getMediaFilesForLayout(layout string, videoURL string) []M
 		Height:   1080,
 		URL:      strings.Replace(videoURL, ".mp4", ".m3u8", 1),
 	})
-	
+
 	return files
 }
 
 func (h *VASTHandler) getOMIDVerificationScript(partner string) string {
 	// Return OMID verification script URL based on partner
 	scripts := map[string]string{
-		"iabtechlab": "https://cdn.lux.network/omid/omid-validation-verification-script-v1.js",
-		"moat":       "https://cdn.lux.network/omid/moat-omid-verification.js",
+		"iabtechlab":   "https://cdn.lux.network/omid/omid-validation-verification-script-v1.js",
+		"moat":         "https://cdn.lux.network/omid/moat-omid-verification.js",
 		"doubleverify": "https://cdn.lux.network/omid/dv-omid-verification.js",
-		"ias":        "https://cdn.lux.network/omid/ias-omid-verification.js",
+		"ias":          "https://cdn.lux.network/omid/ias-omid-verification.js",
 	}
-	
+
 	if url, ok := scripts[strings.ToLower(partner)]; ok {
 		return url
 	}
-	
+
 	return "https://cdn.lux.network/omid/default-verification.js"
 }
 
@@ -671,10 +671,10 @@ func (h *VASTHandler) trackImpression(req *VASTRequest, vast *VAST) {
 		AppToken:  req.AppToken,
 		ZoneID:    req.ZoneID,
 		Device: DeviceInfo{
-			OS:          req.OS,
-			OSVersion:   req.OSVer,
-			Model:       req.DeviceModel,
-			IFA:         h.getIFA(req),
+			OS:        req.OS,
+			OSVersion: req.OSVer,
+			Model:     req.DeviceModel,
+			IFA:       h.getIFA(req),
 		},
 		Location: LocationInfo{
 			Lat:     req.Lat,
@@ -683,16 +683,16 @@ func (h *VASTHandler) trackImpression(req *VASTRequest, vast *VAST) {
 		},
 		AdCount: len(vast.Ads),
 	}
-	
+
 	// Store impression
 	if err := h.Storage.StoreImpression(impression); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Failed to store impression: %v\n", err)
 	}
-	
+
 	// Update analytics
 	h.Analytics.TrackImpression(impression)
-	
+
 	// Blockchain tracking if enabled
 	if req.OnChainTracking == 1 && req.WalletAddress != "" {
 		h.BlockchainMgr.RecordImpression(impression, req.WalletAddress, req.ChainID)

@@ -71,23 +71,23 @@ type Creatives struct {
 
 // Creative element
 type Creative struct {
-	ID             string          `xml:"id,attr,omitempty"`
-	AdID           string          `xml:"adId,attr,omitempty"`
-	Sequence       int             `xml:"sequence,attr,omitempty"`
-	Linear         *Linear         `xml:"Linear,omitempty"`
-	NonLinearAds   *NonLinearAds   `xml:"NonLinearAds,omitempty"`
-	CompanionAds   *CompanionAds   `xml:"CompanionAds,omitempty"`
+	ID           string        `xml:"id,attr,omitempty"`
+	AdID         string        `xml:"adId,attr,omitempty"`
+	Sequence     int           `xml:"sequence,attr,omitempty"`
+	Linear       *Linear       `xml:"Linear,omitempty"`
+	NonLinearAds *NonLinearAds `xml:"NonLinearAds,omitempty"`
+	CompanionAds *CompanionAds `xml:"CompanionAds,omitempty"`
 }
 
 // Linear video ad
 type Linear struct {
-	SkipOffset      string          `xml:"skipoffset,attr,omitempty"`
-	Duration        string          `xml:"Duration"`
-	AdParameters    *AdParameters   `xml:"AdParameters,omitempty"`
-	MediaFiles      MediaFiles      `xml:"MediaFiles"`
-	VideoClicks     *VideoClicks    `xml:"VideoClicks,omitempty"`
-	TrackingEvents  *TrackingEvents `xml:"TrackingEvents,omitempty"`
-	Icons           *Icons          `xml:"Icons,omitempty"`
+	SkipOffset     string          `xml:"skipoffset,attr,omitempty"`
+	Duration       string          `xml:"Duration"`
+	AdParameters   *AdParameters   `xml:"AdParameters,omitempty"`
+	MediaFiles     MediaFiles      `xml:"MediaFiles"`
+	VideoClicks    *VideoClicks    `xml:"VideoClicks,omitempty"`
+	TrackingEvents *TrackingEvents `xml:"TrackingEvents,omitempty"`
+	Icons          *Icons          `xml:"Icons,omitempty"`
 }
 
 // MediaFiles container
@@ -148,8 +148,6 @@ type CustomClick struct {
 	ID  string `xml:"id,attr,omitempty"`
 	URL string `xml:",cdata"`
 }
-
-
 
 // AdPod for CTV ad breaks
 type AdPod struct {

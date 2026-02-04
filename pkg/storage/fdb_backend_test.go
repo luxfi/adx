@@ -27,7 +27,7 @@ func (m *MockFDBBackend) GetImpressions(ctx context.Context, start, end time.Tim
 func TestStoreImpression(t *testing.T) {
 	mockDB := new(MockFDBBackend)
 	ctx := context.Background()
-	
+
 	impression := &ImpressionRecord{
 		ID:          "imp-123",
 		AdID:        "ad-456",
@@ -36,11 +36,11 @@ func TestStoreImpression(t *testing.T) {
 		Price:       5.50,
 		Currency:    "USD",
 	}
-	
+
 	mockDB.On("StoreImpression", ctx, impression).Return(nil)
-	
+
 	err := mockDB.StoreImpression(ctx, impression)
-	
+
 	assert.NoError(t, err)
 	mockDB.AssertExpectations(t)
 }
@@ -48,10 +48,10 @@ func TestStoreImpression(t *testing.T) {
 func TestImpressionRetrieval(t *testing.T) {
 	mockDB := new(MockFDBBackend)
 	ctx := context.Background()
-	
+
 	err := mockDB.StoreImpression(ctx, &ImpressionRecord{ID: "test"})
 	assert.Error(t, err) // Expected to fail as mock not configured
-	
+
 	mockDB.AssertExpectations(t)
 }
 
@@ -66,7 +66,7 @@ func TestBidRecord_Store(t *testing.T) {
 		ResponseTime: 50,
 		CreativeID:   "creative-abc",
 	}
-	
+
 	assert.Equal(t, "bid-123", bid.ID)
 	assert.True(t, bid.Won)
 	assert.Equal(t, 10.50, bid.BidPrice)
@@ -80,10 +80,10 @@ func TestPublisherStats_Aggregate(t *testing.T) {
 		FillRate:         0.85,
 		AvgCPM:           5.0,
 	}
-	
+
 	assert.Equal(t, int64(1000000), stats.TotalImpressions)
 	assert.Equal(t, 0.85, stats.FillRate)
-	
+
 	// Calculate effective CPM
 	if stats.TotalImpressions > 0 {
 		calculatedECPM := (stats.TotalRevenue / float64(stats.TotalImpressions)) * 1000
@@ -94,11 +94,11 @@ func TestPublisherStats_Aggregate(t *testing.T) {
 func TestGetImpressions_TimeRange(t *testing.T) {
 	mockDB := new(MockFDBBackend)
 	ctx := context.Background()
-	
+
 	start := time.Now().Add(-24 * time.Hour)
 	end := time.Now()
 	limit := 100
-	
+
 	expectedImpressions := []*ImpressionRecord{
 		{
 			ID:          "imp-1",
@@ -113,26 +113,26 @@ func TestGetImpressions_TimeRange(t *testing.T) {
 			Price:       4.50,
 		},
 	}
-	
+
 	mockDB.On("GetImpressions", ctx, start, end, limit).Return(expectedImpressions, nil)
-	
+
 	impressions, err := mockDB.GetImpressions(ctx, start, end, limit)
-	
+
 	assert.NoError(t, err)
 	assert.Len(t, impressions, 2)
 	assert.Equal(t, "imp-1", impressions[0].ID)
 	assert.Equal(t, 3.50, impressions[0].Price)
-	
+
 	mockDB.AssertExpectations(t)
 }
 
 func TestMinerEarnings_Update(t *testing.T) {
 	tests := []struct {
-		name           string
-		minerID        string
-		initialAmount  float64
-		addAmount      float64
-		expectedTotal  float64
+		name          string
+		minerID       string
+		initialAmount float64
+		addAmount     float64
+		expectedTotal float64
 	}{
 		{
 			name:          "first earning",
@@ -149,7 +149,7 @@ func TestMinerEarnings_Update(t *testing.T) {
 			expectedTotal: 125.75,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			total := tt.initialAmount + tt.addAmount

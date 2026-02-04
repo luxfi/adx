@@ -30,10 +30,10 @@ func (c *Core) GenerateKeyPair() (privateKey, publicKey []byte, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	pubKeyBytes := luxcrypto.FromECDSAPub(&privKey.PublicKey)
 	privKeyBytes := luxcrypto.FromECDSA(privKey)
-	
+
 	return privKeyBytes, pubKeyBytes, nil
 }
 
@@ -83,12 +83,12 @@ func (c *Core) EncryptWithHPKE(recipientPublicKey, plaintext []byte) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	
+
 	ciphertext, err := c.hpke.SealSimple(encap.SharedSecret, plaintext, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Prepend encapsulated key to ciphertext
 	result := append(encap.EncapsulatedKey, ciphertext...)
 	return result, nil
@@ -99,20 +99,20 @@ func (c *Core) DecryptWithHPKE(privateKey, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < 32 {
 		return nil, ErrInvalidCiphertext
 	}
-	
+
 	encapsulatedKey := ciphertext[:32]
 	actualCiphertext := ciphertext[32:]
-	
+
 	sharedSecret, err := c.hpke.Decapsulate(encapsulatedKey, privateKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	plaintext, err := c.hpke.OpenSimple(sharedSecret, actualCiphertext, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return plaintext, nil
 }
 

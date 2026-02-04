@@ -14,16 +14,16 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/shopspring/decimal"
 	"github.com/luxfi/adx/pkg/rtb"
 	"github.com/luxfi/adx/pkg/vast"
+	"github.com/shopspring/decimal"
 )
 
 var (
-	port     = flag.String("port", "8080", "API server port")
-	env      = flag.String("env", "development", "Environment (development/production)")
-	rtbURL   = flag.String("rtb", "http://localhost:9090", "RTB exchange URL")
-	cdnURL   = flag.String("cdn", "https://cdn.lux.network", "CDN base URL")
+	port   = flag.String("port", "8080", "API server port")
+	env    = flag.String("env", "development", "Environment (development/production)")
+	rtbURL = flag.String("rtb", "http://localhost:9090", "RTB exchange URL")
+	cdnURL = flag.String("cdn", "https://cdn.lux.network", "CDN base URL")
 )
 
 func main() {
@@ -155,14 +155,14 @@ func setupRouter(vastHandler *vast.VASTHandler, exchange *RTBExchangeWrapper) *g
 // Campaign handlers
 func createCampaign(c *gin.Context) {
 	var req struct {
-		Name        string  `json:"name" binding:"required"`
-		Budget      float64 `json:"budget" binding:"required"`
-		CPM         float64 `json:"cpm" binding:"required"`
-		StartDate   string  `json:"start_date" binding:"required"`
-		EndDate     string  `json:"end_date" binding:"required"`
-		Targeting   gin.H   `json:"targeting"`
-		CreativeIDs []string `json:"creative_ids"`
-		WalletAddress string `json:"wallet_address"`
+		Name          string   `json:"name" binding:"required"`
+		Budget        float64  `json:"budget" binding:"required"`
+		CPM           float64  `json:"cpm" binding:"required"`
+		StartDate     string   `json:"start_date" binding:"required"`
+		EndDate       string   `json:"end_date" binding:"required"`
+		Targeting     gin.H    `json:"targeting"`
+		CreativeIDs   []string `json:"creative_ids"`
+		WalletAddress string   `json:"wallet_address"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -172,17 +172,17 @@ func createCampaign(c *gin.Context) {
 
 	// Create campaign in database
 	campaign := gin.H{
-		"id":         fmt.Sprintf("camp_%d", time.Now().Unix()),
-		"name":       req.Name,
-		"budget":     req.Budget,
-		"cpm":        req.CPM,
-		"start_date": req.StartDate,
-		"end_date":   req.EndDate,
-		"targeting":  req.Targeting,
-		"creative_ids": req.CreativeIDs,
+		"id":             fmt.Sprintf("camp_%d", time.Now().Unix()),
+		"name":           req.Name,
+		"budget":         req.Budget,
+		"cpm":            req.CPM,
+		"start_date":     req.StartDate,
+		"end_date":       req.EndDate,
+		"targeting":      req.Targeting,
+		"creative_ids":   req.CreativeIDs,
 		"wallet_address": req.WalletAddress,
-		"status":     "active",
-		"created_at": time.Now(),
+		"status":         "active",
+		"created_at":     time.Now(),
 	}
 
 	c.JSON(201, campaign)
@@ -192,24 +192,24 @@ func listCampaigns(c *gin.Context) {
 	// Mock campaigns for demo
 	campaigns := []gin.H{
 		{
-			"id":         "camp_1",
-			"name":       "Holiday Sale Campaign",
-			"budget":     10000.0,
-			"spent":      2500.0,
+			"id":          "camp_1",
+			"name":        "Holiday Sale Campaign",
+			"budget":      10000.0,
+			"spent":       2500.0,
 			"impressions": 1250000,
-			"clicks":     12500,
-			"ctr":        0.01,
-			"status":     "active",
+			"clicks":      12500,
+			"ctr":         0.01,
+			"status":      "active",
 		},
 		{
-			"id":         "camp_2",
-			"name":       "Brand Awareness",
-			"budget":     5000.0,
-			"spent":      3200.0,
+			"id":          "camp_2",
+			"name":        "Brand Awareness",
+			"budget":      5000.0,
+			"spent":       3200.0,
 			"impressions": 1600000,
-			"clicks":     8000,
-			"ctr":        0.005,
-			"status":     "active",
+			"clicks":      8000,
+			"ctr":         0.005,
+			"status":      "active",
 		},
 	}
 
@@ -221,16 +221,16 @@ func listCampaigns(c *gin.Context) {
 
 func getCampaign(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	campaign := gin.H{
-		"id":         id,
-		"name":       "Test Campaign",
-		"budget":     5000.0,
-		"spent":      1200.0,
+		"id":          id,
+		"name":        "Test Campaign",
+		"budget":      5000.0,
+		"spent":       1200.0,
 		"impressions": 600000,
-		"clicks":     3000,
-		"ctr":        0.005,
-		"status":     "active",
+		"clicks":      3000,
+		"ctr":         0.005,
+		"status":      "active",
 		"targeting": gin.H{
 			"geos":       []string{"US", "CA"},
 			"devices":    []string{"ctv", "mobile"},
@@ -273,14 +273,14 @@ func uploadCreative(c *gin.Context) {
 
 	// Save file (in production, upload to CDN)
 	filename := fmt.Sprintf("creative_%d_%s", time.Now().Unix(), file.Filename)
-	
+
 	creative := gin.H{
-		"id":       fmt.Sprintf("cre_%d", time.Now().Unix()),
-		"filename": filename,
-		"url":      fmt.Sprintf("%s/creatives/%s", *cdnURL, filename),
-		"type":     c.PostForm("type"),
-		"duration": c.PostForm("duration"),
-		"size":     file.Size,
+		"id":         fmt.Sprintf("cre_%d", time.Now().Unix()),
+		"filename":   filename,
+		"url":        fmt.Sprintf("%s/creatives/%s", *cdnURL, filename),
+		"type":       c.PostForm("type"),
+		"duration":   c.PostForm("duration"),
+		"size":       file.Size,
 		"created_at": time.Now(),
 	}
 
@@ -315,7 +315,7 @@ func listCreatives(c *gin.Context) {
 
 func getCreative(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	creative := gin.H{
 		"id":       id,
 		"name":     "Test Creative",
@@ -413,17 +413,17 @@ func connectWallet(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"address": req.Address,
-		"chain_id": req.ChainID,
+		"address":   req.Address,
+		"chain_id":  req.ChainID,
 		"connected": true,
-		"balance": 1000.0, // Mock balance
+		"balance":   1000.0, // Mock balance
 	})
 }
 
 func depositFunds(c *gin.Context) {
 	var req struct {
-		Amount   float64 `json:"amount" binding:"required"`
-		TxHash   string  `json:"tx_hash"`
+		Amount float64 `json:"amount" binding:"required"`
+		TxHash string  `json:"tx_hash"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -432,17 +432,17 @@ func depositFunds(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"amount": req.Amount,
-		"tx_hash": req.TxHash,
-		"status": "confirmed",
+		"amount":      req.Amount,
+		"tx_hash":     req.TxHash,
+		"status":      "confirmed",
 		"new_balance": 1000.0 + req.Amount,
 	})
 }
 
 func withdrawFunds(c *gin.Context) {
 	var req struct {
-		Amount   float64 `json:"amount" binding:"required"`
-		Address  string  `json:"address" binding:"required"`
+		Amount  float64 `json:"amount" binding:"required"`
+		Address string  `json:"address" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -451,17 +451,17 @@ func withdrawFunds(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"amount": req.Amount,
+		"amount":  req.Amount,
 		"address": req.Address,
 		"tx_hash": fmt.Sprintf("0x%x", time.Now().Unix()),
-		"status": "pending",
+		"status":  "pending",
 	})
 }
 
 func getWalletBalance(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"balance": 1000.0,
-		"pending": 50.0,
+		"balance":  1000.0,
+		"pending":  50.0,
 		"currency": "USDC",
 	})
 }
@@ -519,7 +519,7 @@ func (m *MockStorage) GetImpression(id string) (*vast.ImpressionRecord, error) {
 type MockAnalytics struct{}
 
 func (m *MockAnalytics) TrackImpression(imp *vast.ImpressionRecord) {}
-func (m *MockAnalytics) TrackClick(clickID, impID string) {}
+func (m *MockAnalytics) TrackClick(clickID, impID string)           {}
 func (m *MockAnalytics) GetMetrics(start, end time.Time) map[string]interface{} {
 	return map[string]interface{}{}
 }

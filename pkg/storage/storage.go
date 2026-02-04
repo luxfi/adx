@@ -18,7 +18,7 @@ type Storage struct {
 func NewStorage(dbType string, path string) (*Storage, error) {
 	var db database.Database
 	var err error
-	
+
 	switch dbType {
 	case "memory":
 		db = memdb.New()
@@ -34,7 +34,7 @@ func NewStorage(dbType string, path string) (*Storage, error) {
 			return nil, err
 		}
 	}
-	
+
 	return &Storage{db: db}, nil
 }
 

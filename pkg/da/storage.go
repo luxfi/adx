@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	ErrBlobNotFound    = errors.New("blob not found")
-	ErrBlobTooLarge    = errors.New("blob exceeds maximum size")
+	ErrBlobNotFound      = errors.New("blob not found")
+	ErrBlobTooLarge      = errors.New("blob exceeds maximum size")
 	ErrInvalidCommitment = errors.New("invalid blob commitment")
 )
 
@@ -25,43 +25,43 @@ var (
 type DALayer string
 
 const (
-	DALayerEIP4844   DALayer = "eip4844"
-	DALayerCelestia  DALayer = "celestia"
-	DALayerIPFS      DALayer = "ipfs"
-	DALayerLocal     DALayer = "local" // For testing
+	DALayerEIP4844  DALayer = "eip4844"
+	DALayerCelestia DALayer = "celestia"
+	DALayerIPFS     DALayer = "ipfs"
+	DALayerLocal    DALayer = "local" // For testing
 )
 
 const (
-	MaxBlobSize     = 128 * 1024 // 128KB (EIP-4844 size)
-	BlobExpiration  = 18 * 24 * time.Hour // 18 days (EIP-4844 retention)
+	MaxBlobSize    = 128 * 1024          // 128KB (EIP-4844 size)
+	BlobExpiration = 18 * 24 * time.Hour // 18 days (EIP-4844 retention)
 )
 
 // DataAvailability manages blob storage across different DA layers
 type DataAvailability struct {
 	mu sync.RWMutex
-	
+
 	// Configuration
-	layer    DALayer
-	
+	layer DALayer
+
 	// Storage backends
-	blobs    map[ids.ID]*Blob
-	commits  map[ids.ID][]byte
-	
+	blobs   map[ids.ID]*Blob
+	commits map[ids.ID][]byte
+
 	// Metrics
-	stored   uint64
+	stored    uint64
 	retrieved uint64
-	
-	log      log.Logger
+
+	log log.Logger
 }
 
 // Blob represents a data blob
 type Blob struct {
-	ID          ids.ID
-	Data        []byte
-	Commitment  []byte
-	Timestamp   time.Time
-	Expiry      time.Time
-	Layer       DALayer
+	ID         ids.ID
+	Data       []byte
+	Commitment []byte
+	Timestamp  time.Time
+	Expiry     time.Time
+	Layer      DALayer
 }
 
 // NewDataAvailability creates a new DA manager
@@ -79,19 +79,19 @@ func (da *DataAvailability) StoreBlob(data []byte) (*BlobReference, error) {
 	if len(data) > MaxBlobSize {
 		return nil, ErrBlobTooLarge
 	}
-	
+
 	da.mu.Lock()
 	defer da.mu.Unlock()
-	
+
 	// Create blob ID
 	blobID := ids.GenerateTestID()
-	
+
 	// Create KZG commitment (simplified)
 	commitment := da.createCommitment(data)
-	
+
 	// Store based on layer
 	var ref *BlobReference
-	
+
 	switch da.layer {
 	case DALayerEIP4844:
 		ref = da.storeEIP4844(blobID, data, commitment)
@@ -102,7 +102,7 @@ func (da *DataAvailability) StoreBlob(data []byte) (*BlobReference, error) {
 	default:
 		ref = da.storeLocal(blobID, data, commitment)
 	}
-	
+
 	// Store locally for caching
 	blob := &Blob{
 		ID:         blobID,
@@ -112,13 +112,13 @@ func (da *DataAvailability) StoreBlob(data []byte) (*BlobReference, error) {
 		Expiry:     time.Now().Add(BlobExpiration),
 		Layer:      da.layer,
 	}
-	
+
 	da.blobs[blobID] = blob
 	da.commits[blobID] = commitment
 	da.stored++
-	
+
 	da.log.Debug("Stored blob")
-	
+
 	return ref, nil
 }
 
@@ -126,7 +126,7 @@ func (da *DataAvailability) StoreBlob(data []byte) (*BlobReference, error) {
 func (da *DataAvailability) RetrieveBlob(ref *BlobReference) ([]byte, error) {
 	da.mu.RLock()
 	defer da.mu.RUnlock()
-	
+
 	// Check local cache first
 	if blob, exists := da.blobs[ref.BlobID]; exists {
 		if time.Now().Before(blob.Expiry) {
@@ -134,11 +134,11 @@ func (da *DataAvailability) RetrieveBlob(ref *BlobReference) ([]byte, error) {
 			return blob.Data, nil
 		}
 	}
-	
+
 	// Retrieve from DA layer
 	var data []byte
 	var err error
-	
+
 	switch ref.Layer {
 	case DALayerEIP4844:
 		data, err = da.retrieveEIP4844(ref)
@@ -149,31 +149,31 @@ func (da *DataAvailability) RetrieveBlob(ref *BlobReference) ([]byte, error) {
 	default:
 		data, err = da.retrieveLocal(ref)
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Verify commitment
 	if !da.verifyCommitment(data, ref.Commitment) {
 		return nil, ErrInvalidCommitment
 	}
-	
+
 	da.retrieved++
-	
+
 	return data, nil
 }
 
 // BlobReference points to data in the DA layer
 type BlobReference struct {
-	BlobID     ids.ID    `json:"blob_id"`
-	Layer      DALayer   `json:"layer"`
-	Commitment []byte    `json:"commitment"`
-	
+	BlobID     ids.ID  `json:"blob_id"`
+	Layer      DALayer `json:"layer"`
+	Commitment []byte  `json:"commitment"`
+
 	// Layer-specific fields
-	EIP4844Hash   []byte `json:"eip4844_hash,omitempty"`
-	CelestiaRoot  []byte `json:"celestia_root,omitempty"`
-	IPFSHash      string `json:"ipfs_hash,omitempty"`
+	EIP4844Hash  []byte `json:"eip4844_hash,omitempty"`
+	CelestiaRoot []byte `json:"celestia_root,omitempty"`
+	IPFSHash     string `json:"ipfs_hash,omitempty"`
 }
 
 // createCommitment creates a KZG commitment (simplified)
@@ -192,9 +192,9 @@ func (da *DataAvailability) verifyCommitment(data []byte, commitment []byte) boo
 func (da *DataAvailability) storeEIP4844(id ids.ID, data []byte, commitment []byte) *BlobReference {
 	// In production, submit to Ethereum L1
 	// For simulation, create reference
-	
+
 	hash := hashing.ComputeHash256(append(id[:], data...))
-	
+
 	return &BlobReference{
 		BlobID:      id,
 		Layer:       DALayerEIP4844,
@@ -207,11 +207,11 @@ func (da *DataAvailability) storeEIP4844(id ids.ID, data []byte, commitment []by
 func (da *DataAvailability) retrieveEIP4844(ref *BlobReference) ([]byte, error) {
 	// In production, query Ethereum L1
 	// For simulation, return from cache
-	
+
 	if blob, exists := da.blobs[ref.BlobID]; exists {
 		return blob.Data, nil
 	}
-	
+
 	return nil, ErrBlobNotFound
 }
 
@@ -219,10 +219,10 @@ func (da *DataAvailability) retrieveEIP4844(ref *BlobReference) ([]byte, error) 
 func (da *DataAvailability) storeCelestia(id ids.ID, data []byte, commitment []byte) *BlobReference {
 	// In production, submit to Celestia
 	// For simulation, create reference
-	
+
 	// Celestia uses Namespaced Merkle Trees
 	root := da.createNMTRoot(data)
-	
+
 	return &BlobReference{
 		BlobID:       id,
 		Layer:        DALayerCelestia,
@@ -235,11 +235,11 @@ func (da *DataAvailability) storeCelestia(id ids.ID, data []byte, commitment []b
 func (da *DataAvailability) retrieveCelestia(ref *BlobReference) ([]byte, error) {
 	// In production, use Data Availability Sampling
 	// For simulation, return from cache
-	
+
 	if blob, exists := da.blobs[ref.BlobID]; exists {
 		return blob.Data, nil
 	}
-	
+
 	return nil, ErrBlobNotFound
 }
 
@@ -247,9 +247,9 @@ func (da *DataAvailability) retrieveCelestia(ref *BlobReference) ([]byte, error)
 func (da *DataAvailability) storeIPFS(id ids.ID, data []byte, commitment []byte) *BlobReference {
 	// In production, pin to IPFS
 	// For simulation, create fake CID
-	
+
 	cid := "Qm" + id.String()[:44] // Fake IPFS CID
-	
+
 	return &BlobReference{
 		BlobID:     id,
 		Layer:      DALayerIPFS,
@@ -262,11 +262,11 @@ func (da *DataAvailability) storeIPFS(id ids.ID, data []byte, commitment []byte)
 func (da *DataAvailability) retrieveIPFS(ref *BlobReference) ([]byte, error) {
 	// In production, fetch from IPFS
 	// For simulation, return from cache
-	
+
 	if blob, exists := da.blobs[ref.BlobID]; exists {
 		return blob.Data, nil
 	}
-	
+
 	return nil, ErrBlobNotFound
 }
 
@@ -284,7 +284,7 @@ func (da *DataAvailability) retrieveLocal(ref *BlobReference) ([]byte, error) {
 	if blob, exists := da.blobs[ref.BlobID]; exists {
 		return blob.Data, nil
 	}
-	
+
 	return nil, ErrBlobNotFound
 }
 
@@ -292,7 +292,7 @@ func (da *DataAvailability) retrieveLocal(ref *BlobReference) ([]byte, error) {
 func (da *DataAvailability) createNMTRoot(data []byte) []byte {
 	// In production, use actual NMT construction
 	// For simulation, use simple hash
-	
+
 	namespace := []byte("adx_v1")
 	return hashing.ComputeHash256(append(namespace, data...))
 }
@@ -301,11 +301,11 @@ func (da *DataAvailability) createNMTRoot(data []byte) []byte {
 func (da *DataAvailability) GetMetrics() DAMetrics {
 	da.mu.RLock()
 	defer da.mu.RUnlock()
-	
+
 	active := 0
 	expired := 0
 	now := time.Now()
-	
+
 	for _, blob := range da.blobs {
 		if now.Before(blob.Expiry) {
 			active++
@@ -313,7 +313,7 @@ func (da *DataAvailability) GetMetrics() DAMetrics {
 			expired++
 		}
 	}
-	
+
 	return DAMetrics{
 		Layer:     string(da.layer),
 		Stored:    da.stored,
@@ -344,21 +344,21 @@ func (da *DataAvailability) EncryptAndStore(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Serialize envelope
 	data := da.serializeEnvelope(envelope)
-	
+
 	// Store encrypted data
 	ref, err := da.StoreBlob(data)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &EncryptedBlobReference{
-		BlobReference:  *ref,
-		NumRecipients:  len(recipients),
-		EncryptedSize:  len(data),
-		PlaintextHash:  hashing.ComputeHash256(plaintext),
+		BlobReference: *ref,
+		NumRecipients: len(recipients),
+		EncryptedSize: len(data),
+		PlaintextHash: hashing.ComputeHash256(plaintext),
 	}, nil
 }
 
@@ -374,23 +374,23 @@ type EncryptedBlobReference struct {
 func (da *DataAvailability) serializeEnvelope(envelope *crypto.SealedEnvelope) []byte {
 	// Simplified serialization
 	// In production, use proper encoding
-	
+
 	data := make([]byte, 0)
-	
+
 	// Number of encapsulations
 	data = append(data, byte(len(envelope.Encapsulations)))
-	
+
 	// Each encapsulation
 	for _, encap := range envelope.Encapsulations {
 		data = append(data, encap.EncapsulatedKey...)
 		data = append(data, encap.SharedSecret...)
 	}
-	
+
 	// Ciphertext
 	data = append(data, envelope.Ciphertext...)
-	
+
 	// AAD
 	data = append(data, envelope.AAD...)
-	
+
 	return data
 }

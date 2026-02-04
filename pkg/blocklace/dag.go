@@ -14,34 +14,34 @@ import (
 )
 
 var (
-	ErrEquivocation      = errors.New("equivocation detected")
+	ErrEquivocation       = errors.New("equivocation detected")
 	ErrInvalidPredecessor = errors.New("invalid predecessor reference")
-	ErrOrphanBlock       = errors.New("orphan block")
-	ErrByzantine         = errors.New("byzantine behavior detected")
+	ErrOrphanBlock        = errors.New("orphan block")
+	ErrByzantine          = errors.New("byzantine behavior detected")
 )
 
 // DAG represents the Blocklace Directed Acyclic Graph
 type DAG struct {
 	mu sync.RWMutex
-	
+
 	// Graph structure
-	vertices  map[ids.ID]*Vertex
-	tips      map[ids.ID]*Vertex // Current frontier
-	genesis   *Vertex
-	
+	vertices map[ids.ID]*Vertex
+	tips     map[ids.ID]*Vertex // Current frontier
+	genesis  *Vertex
+
 	// Byzantine detection
 	equivocations map[ids.NodeID][]*Vertex
 	byzantine     map[ids.NodeID]bool
-	
+
 	// Ordering
 	sequence  []*Vertex // Total order
 	delivered map[ids.ID]bool
-	
+
 	// Metrics
-	height    uint64
-	width     int
-	
-	log       log.Logger
+	height uint64
+	width  int
+
+	log log.Logger
 }
 
 // Vertex represents a node in the DAG
@@ -49,15 +49,15 @@ type Vertex struct {
 	Header       *core.BaseHeader
 	Predecessors []*Vertex
 	Successors   []*Vertex
-	
+
 	// Byzantine tracking
-	Author       ids.NodeID
-	Round        uint64
-	Delivered    bool
-	
+	Author    ids.NodeID
+	Round     uint64
+	Delivered bool
+
 	// Payload reference
-	PayloadHash  []byte
-	PayloadPtr   []byte // DA layer pointer
+	PayloadHash []byte
+	PayloadPtr  []byte // DA layer pointer
 }
 
 // NewDAG creates a new Blocklace DAG
@@ -71,7 +71,7 @@ func NewDAG(logger log.Logger) *DAG {
 		delivered:     make(map[ids.ID]bool),
 		log:           logger,
 	}
-	
+
 	// Create genesis vertex
 	dag.genesis = &Vertex{
 		Header: &core.BaseHeader{
@@ -84,10 +84,10 @@ func NewDAG(logger log.Logger) *DAG {
 		Round:     0,
 		Delivered: true,
 	}
-	
+
 	dag.vertices[ids.Empty] = dag.genesis
 	dag.sequence = append(dag.sequence, dag.genesis)
-	
+
 	return dag
 }
 
@@ -95,12 +95,12 @@ func NewDAG(logger log.Logger) *DAG {
 func (d *DAG) AddHeader(header *core.BaseHeader, author ids.NodeID) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	// Check for duplicate
 	if _, exists := d.vertices[header.ID]; exists {
 		return nil // Already have it
 	}
-	
+
 	// Verify predecessors
 	predecessors := make([]*Vertex, 0, len(header.Predecessors))
 	for _, predID := range header.Predecessors {
@@ -110,7 +110,7 @@ func (d *DAG) AddHeader(header *core.BaseHeader, author ids.NodeID) error {
 		}
 		predecessors = append(predecessors, pred)
 	}
-	
+
 	// Create vertex
 	vertex := &Vertex{
 		Header:       header,
@@ -119,29 +119,29 @@ func (d *DAG) AddHeader(header *core.BaseHeader, author ids.NodeID) error {
 		Author:       author,
 		Round:        d.calculateRound(predecessors),
 	}
-	
+
 	// Check for equivocation
 	if d.detectEquivocation(vertex) {
 		d.handleEquivocation(vertex)
 		return ErrEquivocation
 	}
-	
+
 	// Add to graph
 	d.vertices[header.ID] = vertex
-	
+
 	// Update predecessors' successors
 	for _, pred := range predecessors {
 		pred.Successors = append(pred.Successors, vertex)
 	}
-	
+
 	// Update tips
 	d.updateTips(vertex)
-	
+
 	// Try to deliver
 	d.tryDeliver(vertex)
-	
+
 	d.log.Debug("Vertex added")
-	
+
 	return nil
 }
 
@@ -149,7 +149,7 @@ func (d *DAG) AddHeader(header *core.BaseHeader, author ids.NodeID) error {
 func (d *DAG) detectEquivocation(v *Vertex) bool {
 	// Check if author already has a vertex at this round
 	authorVertices := d.equivocations[v.Author]
-	
+
 	for _, existing := range authorVertices {
 		if existing.Round == v.Round {
 			// Same author, same round, different vertex = equivocation
@@ -158,10 +158,10 @@ func (d *DAG) detectEquivocation(v *Vertex) bool {
 			}
 		}
 	}
-	
+
 	// Track this vertex
 	d.equivocations[v.Author] = append(authorVertices, v)
-	
+
 	return false
 }
 
@@ -169,9 +169,9 @@ func (d *DAG) detectEquivocation(v *Vertex) bool {
 func (d *DAG) handleEquivocation(v *Vertex) {
 	// Mark author as Byzantine
 	d.byzantine[v.Author] = true
-	
+
 	d.log.Warn("equivocation detected")
-	
+
 	// In Blocklace, equivocating vertices are included but marked
 	// This allows the protocol to continue making progress
 }
@@ -181,14 +181,14 @@ func (d *DAG) calculateRound(predecessors []*Vertex) uint64 {
 	if len(predecessors) == 0 {
 		return 0
 	}
-	
+
 	maxRound := uint64(0)
 	for _, pred := range predecessors {
 		if pred.Round > maxRound {
 			maxRound = pred.Round
 		}
 	}
-	
+
 	return maxRound + 1
 }
 
@@ -196,12 +196,12 @@ func (d *DAG) calculateRound(predecessors []*Vertex) uint64 {
 func (d *DAG) updateTips(v *Vertex) {
 	// Add new vertex as tip
 	d.tips[v.Header.ID] = v
-	
+
 	// Remove predecessors from tips
 	for _, pred := range v.Predecessors {
 		delete(d.tips, pred.Header.ID)
 	}
-	
+
 	d.width = len(d.tips)
 }
 
@@ -213,18 +213,18 @@ func (d *DAG) tryDeliver(v *Vertex) {
 			return // Can't deliver yet
 		}
 	}
-	
+
 	// Deliver this vertex
 	v.Delivered = true
 	d.delivered[v.Header.ID] = true
 	d.sequence = append(d.sequence, v)
-	
+
 	if v.Round > d.height {
 		d.height = v.Round
 	}
-	
+
 	d.log.Debug("Vertex delivered")
-	
+
 	// Try to deliver successors
 	for _, succ := range v.Successors {
 		if !succ.Delivered {
@@ -237,7 +237,7 @@ func (d *DAG) tryDeliver(v *Vertex) {
 func (d *DAG) GetSequence() []*Vertex {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	result := make([]*Vertex, len(d.sequence))
 	copy(result, d.sequence)
 	return result
@@ -247,7 +247,7 @@ func (d *DAG) GetSequence() []*Vertex {
 func (d *DAG) GetTips() []*Vertex {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	tips := make([]*Vertex, 0, len(d.tips))
 	for _, tip := range d.tips {
 		tips = append(tips, tip)
@@ -259,7 +259,7 @@ func (d *DAG) GetTips() []*Vertex {
 func (d *DAG) IsByzantine(nodeID ids.NodeID) bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	return d.byzantine[nodeID]
 }
 
@@ -267,7 +267,7 @@ func (d *DAG) IsByzantine(nodeID ids.NodeID) bool {
 func (d *DAG) GetMetrics() DAGMetrics {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	return DAGMetrics{
 		Vertices:      len(d.vertices),
 		Tips:          len(d.tips),
@@ -292,17 +292,17 @@ type DAGMetrics struct {
 
 // CordialMiner represents a participant in the Blocklace protocol
 type CordialMiner struct {
-	ID       ids.NodeID
-	DAG      *DAG
-	
+	ID  ids.NodeID
+	DAG *DAG
+
 	// Local state
-	round    uint64
-	pending  []*core.BaseHeader
-	
+	round   uint64
+	pending []*core.BaseHeader
+
 	// Network interface
 	broadcast func(*core.BaseHeader)
-	
-	log      log.Logger
+
+	log log.Logger
 }
 
 // NewCordialMiner creates a new cordial miner
@@ -318,13 +318,13 @@ func NewCordialMiner(id ids.NodeID, dag *DAG, logger log.Logger) *CordialMiner {
 // ProposeHeader creates a new header referencing current tips
 func (m *CordialMiner) ProposeHeader(headerType core.HeaderType, data []byte) (*core.BaseHeader, error) {
 	tips := m.DAG.GetTips()
-	
+
 	// Reference all tips as predecessors
 	predecessors := make([]ids.ID, 0, len(tips))
 	for _, tip := range tips {
 		predecessors = append(predecessors, tip.Header.ID)
 	}
-	
+
 	// Create header
 	header := &core.BaseHeader{
 		Type:         headerType,
@@ -334,21 +334,21 @@ func (m *CordialMiner) ProposeHeader(headerType core.HeaderType, data []byte) (*
 		Height:       m.round,
 		Signature:    data, // Simplified
 	}
-	
+
 	// Add to local DAG
 	if err := m.DAG.AddHeader(header, m.ID); err != nil {
 		return nil, err
 	}
-	
+
 	// Broadcast to network
 	if m.broadcast != nil {
 		m.broadcast(header)
 	}
-	
+
 	m.round++
-	
+
 	m.log.Debug("Header created")
-	
+
 	return header, nil
 }
 
@@ -359,7 +359,7 @@ func (m *CordialMiner) ReceiveHeader(header *core.BaseHeader, sender ids.NodeID)
 		m.log.Debug("Ignoring Byzantine sender")
 		return ErrByzantine
 	}
-	
+
 	// Add to DAG
 	if err := m.DAG.AddHeader(header, sender); err != nil {
 		if err == ErrEquivocation {
@@ -368,7 +368,7 @@ func (m *CordialMiner) ReceiveHeader(header *core.BaseHeader, sender ids.NodeID)
 		}
 		return err
 	}
-	
+
 	// Update local round
 	sequence := m.DAG.GetSequence()
 	if len(sequence) > 0 {
@@ -377,6 +377,6 @@ func (m *CordialMiner) ReceiveHeader(header *core.BaseHeader, sender ids.NodeID)
 			m.round = lastDelivered.Round
 		}
 	}
-	
+
 	return nil
 }

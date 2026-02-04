@@ -20,70 +20,70 @@ import (
 )
 
 var (
-	ErrNotAttested      = errors.New("enclave not attested")
-	ErrInvalidQuote     = errors.New("invalid attestation quote")
-	ErrEnclaveSealed    = errors.New("enclave is sealed")
-	ErrMaxBidsExceeded  = errors.New("maximum bids exceeded")
+	ErrNotAttested     = errors.New("enclave not attested")
+	ErrInvalidQuote    = errors.New("invalid attestation quote")
+	ErrEnclaveSealed   = errors.New("enclave is sealed")
+	ErrMaxBidsExceeded = errors.New("maximum bids exceeded")
 )
 
 // EnclaveType represents the TEE type
 type EnclaveType string
 
 const (
-	EnclaveIntelSGX   EnclaveType = "intel_sgx"
-	EnclaveAMDSEV     EnclaveType = "amd_sev"
-	EnclaveAWSNitro   EnclaveType = "aws_nitro"
-	EnclaveAzureCVM   EnclaveType = "azure_cvm"
-	EnclaveSimulated  EnclaveType = "simulated" // For testing
+	EnclaveIntelSGX  EnclaveType = "intel_sgx"
+	EnclaveAMDSEV    EnclaveType = "amd_sev"
+	EnclaveAWSNitro  EnclaveType = "aws_nitro"
+	EnclaveAzureCVM  EnclaveType = "azure_cvm"
+	EnclaveSimulated EnclaveType = "simulated" // For testing
 )
 
 // Enclave represents a Trusted Execution Environment
 type Enclave struct {
-	mu       sync.RWMutex
-	
+	mu sync.RWMutex
+
 	// Enclave identity
-	ID       ids.ID
-	Type     EnclaveType
-	Version  string
-	
+	ID      ids.ID
+	Type    EnclaveType
+	Version string
+
 	// Attestation
 	MREnclave    []byte // Measurement of enclave code
 	MRSigner     []byte // Measurement of enclave signer
 	Quote        []byte // Remote attestation quote
 	Attested     bool
 	AttestedTime time.Time
-	
+
 	// Sealing keys (never leave enclave)
-	sealingKey   []byte
-	
+	sealingKey []byte
+
 	// Auction state (encrypted at rest)
-	auctions     map[ids.ID]*SealedAuction
-	
+	auctions map[ids.ID]*SealedAuction
+
 	// Metrics
-	processed    uint64
-	errors       uint64
-	
-	log          log.Logger
-	
+	processed uint64
+	errors    uint64
+
+	log log.Logger
+
 	// Additional fields for testing
-	attestation  []byte
-	createdAt    time.Time
-	
+	attestation []byte
+	createdAt   time.Time
+
 	// Frequency capping storage
 	frequencyCaps map[string]map[string]int // userID -> campaignID -> count
-	
+
 	// Secure storage
-	secureStore  map[string][]byte
+	secureStore map[string][]byte
 }
 
 // SealedAuction represents an auction sealed in the enclave
 type SealedAuction struct {
-	ID           ids.ID
-	Bids         [][]byte // Encrypted bids
-	Reserve      uint64
-	PolicyRoot   []byte
-	Outcome      *auction.AuctionOutcome
-	Transcript   []byte // Audit log
+	ID         ids.ID
+	Bids       [][]byte // Encrypted bids
+	Reserve    uint64
+	PolicyRoot []byte
+	Outcome    *auction.AuctionOutcome
+	Transcript []byte // Audit log
 }
 
 // NewEnclave creates a new TEE enclave
@@ -98,18 +98,18 @@ func NewEnclave(enclaveType EnclaveType, logger log.Logger) (*Enclave, error) {
 		createdAt:     time.Now(),
 		log:           logger,
 	}
-	
+
 	// Generate sealing key (never exposed outside enclave)
 	enclave.sealingKey = make([]byte, 32)
 	if _, err := cryptorand.Read(enclave.sealingKey); err != nil {
 		return nil, err
 	}
-	
+
 	// Perform attestation
 	if err := enclave.performAttestation(); err != nil {
 		return nil, err
 	}
-	
+
 	return enclave, nil
 }
 
@@ -117,30 +117,30 @@ func NewEnclave(enclaveType EnclaveType, logger log.Logger) (*Enclave, error) {
 func (e *Enclave) performAttestation() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	// Generate measurements
 	e.MREnclave = e.measureCode()
 	e.MRSigner = e.measureSigner()
-	
+
 	// Generate attestation quote
 	quote, err := e.generateQuote()
 	if err != nil {
 		return err
 	}
-	
+
 	e.Quote = quote
 	e.Attested = true
 	e.AttestedTime = time.Now()
-	
+
 	// Set attestation for testing
 	if e.Type == EnclaveSimulated {
 		e.attestation = []byte("SIMULATED_ATTESTATION")
 	} else {
 		e.attestation = quote
 	}
-	
+
 	e.log.Info("Enclave attested")
-	
+
 	return nil
 }
 
@@ -165,28 +165,28 @@ func (e *Enclave) measureSigner() []byte {
 func (e *Enclave) generateQuote() ([]byte, error) {
 	// In production, this would call the TEE's quote generation
 	// For simulation, create a signed statement
-	
+
 	statement := AttestationStatement{
-		EnclaveID:    e.ID,
-		Type:         e.Type,
-		MREnclave:    e.MREnclave,
-		MRSigner:     e.MRSigner,
-		Timestamp:    time.Now(),
-		Nonce:        make([]byte, 16),
+		EnclaveID: e.ID,
+		Type:      e.Type,
+		MREnclave: e.MREnclave,
+		MRSigner:  e.MRSigner,
+		Timestamp: time.Now(),
+		Nonce:     make([]byte, 16),
 	}
-	
+
 	// Add random nonce
 	cryptorand.Read(statement.Nonce)
-	
+
 	// Serialize and sign (simplified)
 	data, err := json.Marshal(statement)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// In production, use TEE's signing key
 	signature := crypto.CreateCommitment(data)
-	
+
 	quote := append(data, signature...)
 	return quote, nil
 }
@@ -203,17 +203,17 @@ type AttestationStatement struct {
 
 // EnclaveAuctionResult represents the result of an auction run in the enclave
 type EnclaveAuctionResult struct {
-	AuctionID      ids.ID        `json:"auction_id"`
-	WinnerID       ids.ID        `json:"winner_id"`
-	WinnerCommit   []byte        `json:"winner_commit"`
-	ClearingPrice  uint64        `json:"clearing_price"`
-	PriceCommit    []byte        `json:"price_commit"`
-	NumBids        int           `json:"num_bids"`
-	ExecutionTime  time.Duration `json:"execution_time"`
-	EnclaveQuote   []byte        `json:"enclave_quote"`
-	Transcript     []byte        `json:"transcript"` // Sealed audit log
-	Proof          []byte        `json:"proof"`
-	ProcessedAt    time.Time     `json:"processed_at"`
+	AuctionID     ids.ID        `json:"auction_id"`
+	WinnerID      ids.ID        `json:"winner_id"`
+	WinnerCommit  []byte        `json:"winner_commit"`
+	ClearingPrice uint64        `json:"clearing_price"`
+	PriceCommit   []byte        `json:"price_commit"`
+	NumBids       int           `json:"num_bids"`
+	ExecutionTime time.Duration `json:"execution_time"`
+	EnclaveQuote  []byte        `json:"enclave_quote"`
+	Transcript    []byte        `json:"transcript"` // Sealed audit log
+	Proof         []byte        `json:"proof"`
+	ProcessedAt   time.Time     `json:"processed_at"`
 }
 
 // RunAuction runs an auction inside the enclave
@@ -221,16 +221,16 @@ func (e *Enclave) RunAuction(auctionID ids.ID, reserve uint64, encryptedBids [][
 	if !e.Attested {
 		return nil, ErrNotAttested
 	}
-	
+
 	if len(encryptedBids) > 1000 {
 		return nil, ErrMaxBidsExceeded
 	}
-	
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	startTime := time.Now()
-	
+
 	// Create sealed auction
 	sealed := &SealedAuction{
 		ID:         auctionID,
@@ -238,7 +238,7 @@ func (e *Enclave) RunAuction(auctionID ids.ID, reserve uint64, encryptedBids [][
 		Reserve:    reserve,
 		PolicyRoot: crypto.CreateCommitment([]byte("policy_v1")),
 	}
-	
+
 	// Decrypt bids inside enclave
 	decryptedBids := make([]*BidData, 0, len(encryptedBids))
 	for _, encBid := range encryptedBids {
@@ -249,18 +249,18 @@ func (e *Enclave) RunAuction(auctionID ids.ID, reserve uint64, encryptedBids [][
 		}
 		decryptedBids = append(decryptedBids, bid)
 	}
-	
+
 	// Run second-price auction
 	outcome := e.runSecondPriceAuction(decryptedBids, reserve)
 	sealed.Outcome = outcome
-	
+
 	// Generate audit transcript
 	transcript := e.generateTranscript(sealed, decryptedBids, outcome)
 	sealed.Transcript = transcript
-	
+
 	// Store sealed auction
 	e.auctions[auctionID] = sealed
-	
+
 	// Create result with attestation
 	result := &EnclaveAuctionResult{
 		AuctionID:     auctionID,
@@ -275,11 +275,11 @@ func (e *Enclave) RunAuction(auctionID ids.ID, reserve uint64, encryptedBids [][
 		Proof:         transcript, // Simplified proof
 		ProcessedAt:   time.Now(),
 	}
-	
+
 	e.processed++
-	
+
 	e.log.Info("Auction processed in TEE")
-	
+
 	return result, nil
 }
 
@@ -295,11 +295,11 @@ type BidData struct {
 func (e *Enclave) decryptBid(encryptedBid []byte) (*BidData, error) {
 	// In production, use proper decryption with enclave keys
 	// For simulation, extract bid from encrypted data
-	
+
 	if len(encryptedBid) < 16 {
 		return nil, errors.New("invalid encrypted bid")
 	}
-	
+
 	// Simulated decryption - ensure some bids are above typical reserve
 	bid := &BidData{
 		BidderID:   ids.GenerateTestID(),
@@ -307,7 +307,7 @@ func (e *Enclave) decryptBid(encryptedBid []byte) (*BidData, error) {
 		CreativeID: ids.GenerateTestID(),
 		Targeting:  make(map[string]string),
 	}
-	
+
 	return bid, nil
 }
 
@@ -320,15 +320,15 @@ func (e *Enclave) runSecondPriceAuction(bids []*BidData, reserve uint64) *auctio
 			ClearingPrice: 0,
 		}
 	}
-	
+
 	// Find highest and second highest
 	var highest, secondHighest *BidData
-	
+
 	for _, bid := range bids {
 		if bid.Value < reserve {
 			continue
 		}
-		
+
 		if highest == nil || bid.Value > highest.Value {
 			secondHighest = highest
 			highest = bid
@@ -336,7 +336,7 @@ func (e *Enclave) runSecondPriceAuction(bids []*BidData, reserve uint64) *auctio
 			secondHighest = bid
 		}
 	}
-	
+
 	if highest == nil {
 		return &auction.AuctionOutcome{
 			WinnerID:      ids.Empty,
@@ -344,13 +344,13 @@ func (e *Enclave) runSecondPriceAuction(bids []*BidData, reserve uint64) *auctio
 			ClearingPrice: 0,
 		}
 	}
-	
+
 	// Determine clearing price
 	clearingPrice := reserve
 	if secondHighest != nil {
 		clearingPrice = secondHighest.Value
 	}
-	
+
 	return &auction.AuctionOutcome{
 		WinnerID:      highest.BidderID,
 		WinningBid:    highest.Value,
@@ -370,7 +370,7 @@ func (e *Enclave) generateTranscript(sealed *SealedAuction, bids []*BidData, out
 		"timestamp":      time.Now().Unix(),
 		"enclave_id":     e.ID.String(),
 	}
-	
+
 	data, _ := json.Marshal(transcript)
 	return data
 }
@@ -399,30 +399,30 @@ func (e *Enclave) commitToPrice(price uint64) []byte {
 func VerifyAttestation(quote []byte, expectedMREnclave []byte) bool {
 	// In production, verify with Intel/AMD attestation service
 	// For simulation, check structure
-	
+
 	if len(quote) < 64 {
 		return false
 	}
-	
+
 	// Extract statement from quote
 	statementData := quote[:len(quote)-32]
-	
+
 	var statement AttestationStatement
 	if err := json.Unmarshal(statementData, &statement); err != nil {
 		return false
 	}
-	
+
 	// Verify MREnclave matches expected
 	if expectedMREnclave != nil {
 		if string(statement.MREnclave) != string(expectedMREnclave) {
 			return false
 		}
 	}
-	
+
 	// Verify signature (simplified)
 	signature := quote[len(quote)-32:]
 	expectedSig := crypto.CreateCommitment(statementData)
-	
+
 	return string(signature) == string(expectedSig)
 }
 
@@ -430,7 +430,7 @@ func VerifyAttestation(quote []byte, expectedMREnclave []byte) bool {
 func (e *Enclave) GetAttestation() *core.BaseHeader {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	
+
 	return &core.BaseHeader{
 		Type:      "enclave_attestation",
 		ID:        e.ID,
@@ -443,27 +443,27 @@ func (e *Enclave) GetAttestation() *core.BaseHeader {
 func (e *Enclave) CheckFrequencyCap(userID, campaignID string, maxImpressions int) (bool, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	if !e.Attested {
 		return false, ErrNotAttested
 	}
-	
+
 	// Initialize user's map if not exists
 	if _, exists := e.frequencyCaps[userID]; !exists {
 		e.frequencyCaps[userID] = make(map[string]int)
 	}
-	
+
 	// Get current count for this campaign
 	currentCount := e.frequencyCaps[userID][campaignID]
-	
+
 	// Check if under cap
 	if currentCount >= maxImpressions {
 		return false, nil
 	}
-	
+
 	// Increment count
 	e.frequencyCaps[userID][campaignID]++
-	
+
 	return true, nil
 }
 
@@ -471,25 +471,25 @@ func (e *Enclave) CheckFrequencyCap(userID, campaignID string, maxImpressions in
 func (e *Enclave) StoreSecure(key string, value []byte) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	if !e.Attested {
 		return ErrNotAttested
 	}
-	
+
 	// Encrypt value with sealing key before storing
 	hasher := sha256.New()
 	hasher.Write(e.sealingKey)
 	hasher.Write([]byte(key))
 	encKey := hasher.Sum(nil)[:32]
-	
+
 	// Simple XOR encryption for testing (use proper encryption in production)
 	encrypted := make([]byte, len(value))
 	for i := range value {
 		encrypted[i] = value[i] ^ encKey[i%len(encKey)]
 	}
-	
+
 	e.secureStore[key] = encrypted
-	
+
 	return nil
 }
 
@@ -497,27 +497,27 @@ func (e *Enclave) StoreSecure(key string, value []byte) error {
 func (e *Enclave) RetrieveSecure(key string) ([]byte, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	
+
 	if !e.Attested {
 		return nil, ErrNotAttested
 	}
-	
+
 	encrypted, exists := e.secureStore[key]
 	if !exists {
 		return nil, errors.New("key not found")
 	}
-	
+
 	// Decrypt value with sealing key
 	hasher := sha256.New()
 	hasher.Write(e.sealingKey)
 	hasher.Write([]byte(key))
 	encKey := hasher.Sum(nil)[:32]
-	
+
 	// Simple XOR decryption for testing (use proper encryption in production)
 	decrypted := make([]byte, len(encrypted))
 	for i := range encrypted {
 		decrypted[i] = encrypted[i] ^ encKey[i%len(encKey)]
 	}
-	
+
 	return decrypted, nil
 }

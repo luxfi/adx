@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luxfi/adx/pkg/proof/halo2"
 	"github.com/luxfi/adx/pkg/ids"
 	"github.com/luxfi/adx/pkg/log"
+	"github.com/luxfi/adx/pkg/proof/halo2"
 )
 
 var (
@@ -22,15 +22,15 @@ var (
 // Halo2Auction represents an auction with Halo2 ZK proofs
 type Halo2Auction struct {
 	*Auction
-	
+
 	// Halo2 circuits
 	circuit *halo2.AuctionCircuit
 	pk      *halo2.ProvingKey
 	vk      *halo2.VerifyingKey
-	
+
 	// Proof storage
-	proofs  map[ids.ID]*halo2.Halo2Proof
-	mu      sync.RWMutex
+	proofs map[ids.ID]*halo2.Halo2Proof
+	mu     sync.RWMutex
 }
 
 // NewHalo2Auction creates an auction with Halo2 proof support
@@ -42,17 +42,17 @@ func NewHalo2Auction(
 ) (*Halo2Auction, error) {
 	// Create base auction
 	baseAuction := NewAuction(auctionID, reserve, duration, logger)
-	
+
 	// Create Halo2 circuit with estimated max bids
 	maxBids := 100
 	circuit := halo2.NewAuctionCircuit(maxBids, reserve, logger)
-	
+
 	// Setup circuit (generate SRS)
 	pk, vk, err := circuit.Setup()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &Halo2Auction{
 		Auction: baseAuction,
 		circuit: circuit,
@@ -67,33 +67,33 @@ func (ha *Halo2Auction) RunAuctionWithHalo2(decryptionKey []byte) (*Halo2Auction
 	if ha.circuit == nil || ha.pk == nil {
 		return nil, ErrCircuitNotSetup
 	}
-	
+
 	ha.mu.Lock()
 	defer ha.mu.Unlock()
-	
+
 	// Run base auction to get outcome
 	outcome, err := ha.RunAuction(decryptionKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Prepare witness for Halo2 proof
 	witness, err := ha.prepareWitness(outcome)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Generate Halo2 proof
 	proof, err := ha.circuit.Prove(ha.pk, witness)
 	if err != nil {
 		ha.log.Error("Halo2 proof generation failed")
 		return nil, ErrProofGenFailed
 	}
-	
+
 	// Store proof
 	proofID := ids.GenerateTestID()
 	ha.proofs[proofID] = proof
-	
+
 	// Create public inputs for verification
 	publicInputs := &halo2.AuctionPublicInputs{
 		NumBids:       len(ha.Bids),
@@ -101,16 +101,16 @@ func (ha *Halo2Auction) RunAuctionWithHalo2(decryptionKey []byte) (*Halo2Auction
 		ClearingPrice: outcome.ClearingPrice,
 		WinnerCommit:  proof.WitnessCommitments[len(ha.Bids)],
 	}
-	
+
 	// Verify proof
 	valid := ha.circuit.Verify(ha.vk, publicInputs, proof)
 	if !valid {
 		ha.log.Error("Halo2 proof verification failed")
 		return nil, errors.New("proof verification failed")
 	}
-	
+
 	ha.log.Info("Halo2 auction completed")
-	
+
 	return &Halo2AuctionOutcome{
 		AuctionOutcome: *outcome,
 		Halo2Proof:     proof,
@@ -125,17 +125,17 @@ func (ha *Halo2Auction) prepareWitness(outcome *AuctionOutcome) (*halo2.AuctionW
 	decryptedBids := make([]*big.Int, 0, len(ha.Bids))
 	winnerIndex := -1
 	secondHighest := big.NewInt(0)
-	
+
 	for i, sealedBid := range ha.Bids {
 		// In production, decrypt actual bid values
 		// For now, use simulated values
 		bidValue := big.NewInt(int64(100 + i*50))
 		decryptedBids = append(decryptedBids, bidValue)
-		
+
 		if sealedBid.BidderID == outcome.WinnerID {
 			winnerIndex = i
 		}
-		
+
 		// Track second highest
 		if bidValue.Cmp(big.NewInt(int64(outcome.WinningBid))) < 0 {
 			if bidValue.Cmp(secondHighest) > 0 {
@@ -143,17 +143,17 @@ func (ha *Halo2Auction) prepareWitness(outcome *AuctionOutcome) (*halo2.AuctionW
 			}
 		}
 	}
-	
+
 	// Pad bids to match circuit size
 	for len(decryptedBids) < ha.circuit.NumBids {
 		decryptedBids = append(decryptedBids, big.NewInt(0))
 	}
-	
+
 	// If second highest is less than reserve, use reserve
 	if secondHighest.Cmp(big.NewInt(int64(ha.Reserve))) < 0 {
 		secondHighest = big.NewInt(int64(ha.Reserve))
 	}
-	
+
 	return &halo2.AuctionWitness{
 		Bids:          decryptedBids,
 		WinnerIndex:   winnerIndex,
@@ -170,13 +170,13 @@ func (ha *Halo2Auction) VerifyHalo2Proof(
 ) bool {
 	ha.mu.RLock()
 	defer ha.mu.RUnlock()
-	
+
 	proof, exists := ha.proofs[proofID]
 	if !exists {
 		ha.log.Debug("Debug")
 		return false
 	}
-	
+
 	return ha.circuit.Verify(ha.vk, publicInputs, proof)
 }
 
@@ -196,31 +196,31 @@ type Halo2AuctionOutcome struct {
 // Halo2BudgetManager manages budgets with Halo2 proofs
 type Halo2BudgetManager struct {
 	mu sync.RWMutex
-	
+
 	// Budget storage
 	budgets map[ids.ID]*big.Int
-	
+
 	// Halo2 circuit
 	circuit *halo2.BudgetCircuit
 	pk      *halo2.ProvingKey
 	vk      *halo2.VerifyingKey
-	
+
 	// Proof storage
 	proofs map[ids.ID]*halo2.Halo2Proof
-	
+
 	log log.Logger
 }
 
 // NewHalo2BudgetManager creates a budget manager with Halo2 proofs
 func NewHalo2BudgetManager(logger log.Logger) (*Halo2BudgetManager, error) {
 	circuit := halo2.NewBudgetCircuit(logger)
-	
+
 	// Setup circuit
 	pk, vk, err := circuit.Setup()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &Halo2BudgetManager{
 		budgets: make(map[ids.ID]*big.Int),
 		circuit: circuit,
@@ -238,45 +238,45 @@ func (bm *Halo2BudgetManager) DeductBudgetWithProof(
 ) (*Halo2BudgetProof, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	
+
 	// Get current budget
 	currentBudget, exists := bm.budgets[advertiserID]
 	if !exists {
 		currentBudget = big.NewInt(10000) // Default budget
 		bm.budgets[advertiserID] = currentBudget
 	}
-	
+
 	// Calculate new budget
 	delta := big.NewInt(int64(amount))
 	newBudget := new(big.Int).Sub(currentBudget, delta)
-	
+
 	// Check if budget would go negative
 	if newBudget.Sign() < 0 {
 		return nil, errors.New("insufficient budget")
 	}
-	
+
 	// Create witness
 	witness := &halo2.BudgetWitness{
 		OldBudget: new(big.Int).Set(currentBudget),
 		Delta:     delta,
 		NewBudget: newBudget,
 	}
-	
+
 	// Generate proof
 	proof, err := bm.circuit.Prove(bm.pk, witness)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Update budget
 	bm.budgets[advertiserID] = newBudget
-	
+
 	// Store proof
 	proofID := ids.GenerateTestID()
 	bm.proofs[proofID] = proof
-	
+
 	bm.log.Info("Budget updated with proof")
-	
+
 	return &Halo2BudgetProof{
 		ProofID:         proofID,
 		AdvertiserID:    advertiserID,
@@ -292,13 +292,13 @@ func (bm *Halo2BudgetManager) DeductBudgetWithProof(
 func (bm *Halo2BudgetManager) VerifyBudgetProof(proofData *Halo2BudgetProof) bool {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
-	
+
 	publicInputs := &halo2.BudgetPublicInputs{
 		Delta:           proofData.Delta,
 		OldBudgetCommit: proofData.OldBudgetCommit,
 		NewBudgetCommit: proofData.NewBudgetCommit,
 	}
-	
+
 	return bm.circuit.Verify(bm.vk, publicInputs, proofData.Halo2Proof)
 }
 
@@ -316,19 +316,19 @@ type Halo2BudgetProof struct {
 // Halo2FrequencyManager manages frequency caps with Halo2 proofs
 type Halo2FrequencyManager struct {
 	mu sync.RWMutex
-	
+
 	// Counter storage
 	counters map[string]*big.Int
 	caps     map[ids.ID]uint32
-	
+
 	// Halo2 circuits (one per cap value)
 	circuits map[uint32]*halo2.FrequencyCircuit
 	pks      map[uint32]*halo2.ProvingKey
 	vks      map[uint32]*halo2.VerifyingKey
-	
+
 	// Proof storage
 	proofs map[ids.ID]*halo2.Halo2Proof
-	
+
 	log log.Logger
 }
 
@@ -353,7 +353,7 @@ func (fm *Halo2FrequencyManager) CheckAndIncrementWithProof(
 ) (*Halo2FrequencyProof, error) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	// Get or create circuit for this cap value
 	circuit, exists := fm.circuits[cap]
 	if !exists {
@@ -366,7 +366,7 @@ func (fm *Halo2FrequencyManager) CheckAndIncrementWithProof(
 		fm.pks[cap] = pk
 		fm.vks[cap] = vk
 	}
-	
+
 	// Get current counter
 	key := deviceID + "_" + campaignID.String()
 	counter, exists := fm.counters[key]
@@ -374,12 +374,12 @@ func (fm *Halo2FrequencyManager) CheckAndIncrementWithProof(
 		counter = big.NewInt(0)
 		fm.counters[key] = counter
 	}
-	
+
 	// Check if cap would be exceeded
 	if counter.Cmp(big.NewInt(int64(cap))) >= 0 {
 		return nil, errors.New("frequency cap exceeded")
 	}
-	
+
 	// Create witness
 	newCounter := new(big.Int).Add(counter, big.NewInt(1))
 	witness := &halo2.FrequencyWitness{
@@ -387,23 +387,23 @@ func (fm *Halo2FrequencyManager) CheckAndIncrementWithProof(
 		CounterAfter:  newCounter,
 		CampaignID:    campaignID,
 	}
-	
+
 	// Generate proof
 	proof, err := circuit.Prove(fm.pks[cap], witness)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Update counter
 	fm.counters[key] = newCounter
 	fm.caps[campaignID] = cap
-	
+
 	// Store proof
 	proofID := ids.GenerateTestID()
 	fm.proofs[proofID] = proof
-	
+
 	fm.log.Debug("Frequency updated with proof")
-	
+
 	return &Halo2FrequencyProof{
 		ProofID:     proofID,
 		CampaignID:  campaignID,
@@ -418,25 +418,25 @@ func (fm *Halo2FrequencyManager) CheckAndIncrementWithProof(
 func (fm *Halo2FrequencyManager) VerifyFrequencyProof(proofData *Halo2FrequencyProof) bool {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
-	
+
 	// Get verifying key for this cap
 	vk, exists := fm.vks[proofData.Cap]
 	if !exists {
 		fm.log.Debug("Debug")
 		return false
 	}
-	
+
 	circuit, exists := fm.circuits[proofData.Cap]
 	if !exists {
 		return false
 	}
-	
+
 	publicInputs := &halo2.FrequencyPublicInputs{
 		Cap:         proofData.Cap,
 		CampaignID:  proofData.CampaignID,
 		CounterRoot: proofData.CounterRoot,
 	}
-	
+
 	return circuit.Verify(vk, publicInputs, proofData.Halo2Proof)
 }
 

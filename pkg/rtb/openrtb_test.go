@@ -34,9 +34,9 @@ func TestRTBExchange_Init(t *testing.T) {
 
 func TestCTVOptimizer_Validate(t *testing.T) {
 	optimizer := &CTVOptimizer{
-		PublicaEnabled:            true,
-		PodFillRate:               0.85,
-		OptimalPodSize:            6,
+		PublicaEnabled:           true,
+		PodFillRate:              0.85,
+		OptimalPodSize:           6,
 		CreativeQualityThreshold: 0.7,
 		MinVideoBitrate:          2000000,
 		RequiredFormats:          []string{"video/mp4", "video/webm"},
@@ -80,8 +80,8 @@ func TestBidRequest_Mock(t *testing.T) {
 			{
 				ID: "imp-1",
 				Video: &openrtb2.Video{
-					W:        ptrInt64(1920),
-					H:        ptrInt64(1080),
+					W:           ptrInt64(1920),
+					H:           ptrInt64(1080),
 					MinDuration: 15,
 					MaxDuration: 30,
 				},
@@ -115,7 +115,7 @@ func TestRTBExchange_BidRequest(t *testing.T) {
 		FloorPrice:     decimal.NewFromFloat(0.50),
 		Revenue:        big.NewInt(0),
 	}
-	
+
 	// Add a test DSP with RateLimiter
 	exchange.DSPs["test-dsp"] = &DSPConnection{
 		ID:         "test-dsp",

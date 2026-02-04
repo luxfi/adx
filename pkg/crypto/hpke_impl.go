@@ -54,46 +54,45 @@ func (h *HPKEImpl) GenerateKeyPair() (publicKey, privateKey []byte, err error) {
 	if _, err := rand.Read(privateKey); err != nil {
 		return nil, nil, err
 	}
-	
+
 	publicKey, err = curve25519.X25519(privateKey, curve25519.Basepoint)
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	return publicKey, privateKey, nil
 }
-
 
 // Encapsulate generates an ephemeral key pair and shared secret
 func (h *HPKEImpl) Encapsulate(recipientPublicKey []byte) (*Encapsulation, error) {
 	if len(recipientPublicKey) != 32 {
 		return nil, ErrInvalidKeySize
 	}
-	
+
 	// Generate ephemeral key pair
 	ephemeralPrivate := make([]byte, 32)
 	if _, err := rand.Read(ephemeralPrivate); err != nil {
 		return nil, err
 	}
-	
+
 	ephemeralPublic, err := curve25519.X25519(ephemeralPrivate, curve25519.Basepoint)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Compute shared secret
 	sharedSecret, err := curve25519.X25519(ephemeralPrivate, recipientPublicKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Derive key using HKDF
 	kdf := hkdf.New(sha3.New256, sharedSecret, nil, []byte("adx-hpke-v1"))
 	derivedKey := make([]byte, 32)
 	if _, err := kdf.Read(derivedKey); err != nil {
 		return nil, err
 	}
-	
+
 	return &Encapsulation{
 		EncapsulatedKey: ephemeralPublic,
 		SharedSecret:    derivedKey,
@@ -105,20 +104,20 @@ func (h *HPKEImpl) Decapsulate(encapsulatedKey, privateKey []byte) ([]byte, erro
 	if len(encapsulatedKey) != 32 || len(privateKey) != 32 {
 		return nil, ErrInvalidKeySize
 	}
-	
+
 	// Compute shared secret
 	sharedSecret, err := curve25519.X25519(privateKey, encapsulatedKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Derive key using HKDF
 	kdf := hkdf.New(sha3.New256, sharedSecret, nil, []byte("adx-hpke-v1"))
 	derivedKey := make([]byte, 32)
 	if _, err := kdf.Read(derivedKey); err != nil {
 		return nil, err
 	}
-	
+
 	return derivedKey, nil
 }
 
@@ -134,27 +133,27 @@ func (h *HPKEImpl) Seal(plaintext []byte, recipientPublicKeys [][]byte, aad []by
 	if len(recipientPublicKeys) == 0 {
 		return nil, errors.New("no recipients specified")
 	}
-	
+
 	// Generate content encryption key
 	contentKey := make([]byte, 32)
 	if _, err := rand.Read(contentKey); err != nil {
 		return nil, err
 	}
-	
+
 	// Encrypt plaintext with content key
 	aead, err := chacha20poly1305.New(contentKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	nonce := make([]byte, aead.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	
+
 	// Include AAD in encryption
 	ciphertext := aead.Seal(nonce, nonce, plaintext, aad)
-	
+
 	// Encapsulate content key for each recipient
 	encapsulations := make([]Encapsulation, len(recipientPublicKeys))
 	for i, pubKey := range recipientPublicKeys {
@@ -164,7 +163,7 @@ func (h *HPKEImpl) Seal(plaintext []byte, recipientPublicKeys [][]byte, aad []by
 		}
 		encapsulations[i] = *encap
 	}
-	
+
 	return &SealedEnvelope{
 		Encapsulations: encapsulations,
 		Ciphertext:     ciphertext,
@@ -177,38 +176,38 @@ func (h *HPKEImpl) Open(envelope *SealedEnvelope, recipientPrivateKey []byte, re
 	if recipientIndex >= len(envelope.Encapsulations) {
 		return nil, errors.New("invalid recipient index")
 	}
-	
+
 	// Decapsulate to get shared secret
 	encap := envelope.Encapsulations[recipientIndex]
 	sharedSecret, err := h.Decapsulate(encap.EncapsulatedKey, recipientPrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Recover content key by XORing with shared secret (simplified)
 	contentKey := make([]byte, len(encap.SharedSecret))
 	for i := range contentKey {
 		contentKey[i] = encap.SharedSecret[i] ^ sharedSecret[i%len(sharedSecret)]
 	}
-	
+
 	// Decrypt ciphertext
 	aead, err := chacha20poly1305.New(contentKey[:32])
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(envelope.Ciphertext) < aead.NonceSize() {
 		return nil, ErrDecryptionFailed
 	}
-	
+
 	nonce := envelope.Ciphertext[:aead.NonceSize()]
 	ciphertext := envelope.Ciphertext[aead.NonceSize():]
-	
+
 	plaintext, err := aead.Open(nil, nonce, ciphertext, envelope.AAD)
 	if err != nil {
 		return nil, ErrDecryptionFailed
 	}
-	
+
 	return plaintext, nil
 }
 
@@ -220,13 +219,13 @@ func (h *HPKEImpl) encapsulateContentKey(contentKey, recipientPublicKey []byte) 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// XOR content key with shared secret (simplified)
 	encrypted := make([]byte, len(contentKey))
 	for i := range contentKey {
 		encrypted[i] = contentKey[i] ^ encap.SharedSecret[i%len(encap.SharedSecret)]
 	}
-	
+
 	return &Encapsulation{
 		EncapsulatedKey: encap.EncapsulatedKey,
 		SharedSecret:    encrypted,
@@ -247,13 +246,13 @@ func (h *HPKEImpl) SealSimple(sharedSecret, plaintext, aad []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Generate nonce
 	nonce := make([]byte, aead.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	
+
 	// Encrypt and authenticate
 	ciphertext := aead.Seal(nonce, nonce, plaintext, aad)
 	return ciphertext, nil
@@ -266,18 +265,18 @@ func (h *HPKEImpl) OpenSimple(sharedSecret, ciphertext, aad []byte) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(ciphertext) < aead.NonceSize() {
 		return nil, ErrDecryptionFailed
 	}
-	
+
 	nonce := ciphertext[:aead.NonceSize()]
 	actualCiphertext := ciphertext[aead.NonceSize():]
-	
+
 	plaintext, err := aead.Open(nil, nonce, actualCiphertext, aad)
 	if err != nil {
 		return nil, ErrDecryptionFailed
 	}
-	
+
 	return plaintext, nil
 }

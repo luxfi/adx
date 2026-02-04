@@ -16,24 +16,24 @@ import (
 // PublicaSSP integrates with Publica's CTV SSP
 type PublicaSSP struct {
 	// Publica endpoints
-	BidEndpoint   string
-	VASTEndpoint  string
+	BidEndpoint    string
+	VASTEndpoint   string
 	ReportEndpoint string
-	
+
 	// Authentication
 	PublisherID string
 	APIKey      string
-	
+
 	// Configuration
-	Timeout     time.Duration
-	MaxQPS      int
-	
+	Timeout time.Duration
+	MaxQPS  int
+
 	// Demand sources connected through ADX
 	DSPConnections map[string]*DSPConfig
-	
+
 	// Analytics
 	Analytics *analytics.AnalyticsTracker
-	
+
 	// Cache for pod assembly
 	PodCache *PodCache
 }
@@ -75,25 +75,25 @@ func (p *PublicaSSP) AddDSP(config *DSPConfig) {
 // HandleBidRequest processes incoming SSP bid requests and routes to DSPs
 func (p *PublicaSSP) HandleBidRequest(ctx context.Context, request *openrtb2.BidRequest) (*openrtb2.BidResponse, error) {
 	startTime := time.Now()
-	
+
 	// Track request
 	p.Analytics.TrackRequest(request)
-	
+
 	// Enrich request with Publica-specific extensions
 	enrichedRequest := p.enrichRequest(request)
-	
+
 	// Route to connected DSPs in parallel
 	bidResponses := p.routeToDSPs(ctx, enrichedRequest)
-	
+
 	// Run auction to select winning bids
 	winningBids := p.runAuction(bidResponses)
-	
+
 	// Assemble into ad pods for CTV
 	podResponse := p.assemblePods(winningBids, request)
-	
+
 	// Track metrics
 	p.Analytics.TrackResponse(podResponse, time.Since(startTime))
-	
+
 	return podResponse, nil
 }
 
@@ -105,9 +105,9 @@ func (p *PublicaSSP) enrichRequest(request *openrtb2.BidRequest) *openrtb2.BidRe
 			// Add pod information
 			ext := map[string]interface{}{
 				"pod": map[string]interface{}{
-					"id":       fmt.Sprintf("pod-%d", i),
-					"sequence": i + 1,
-					"maxseq":   len(request.Imp),
+					"id":          fmt.Sprintf("pod-%d", i),
+					"sequence":    i + 1,
+					"maxseq":      len(request.Imp),
 					"maxduration": 120, // 2 minute pod max
 					"minduration": 15,  // 15 second minimum
 				},
@@ -117,11 +117,11 @@ func (p *PublicaSSP) enrichRequest(request *openrtb2.BidRequest) *openrtb2.BidRe
 					"vast_version": "4.0",
 				},
 			}
-			
+
 			request.Imp[i].Ext, _ = json.Marshal(ext)
 		}
 	}
-	
+
 	return request
 }
 
@@ -129,7 +129,7 @@ func (p *PublicaSSP) enrichRequest(request *openrtb2.BidRequest) *openrtb2.BidRe
 func (p *PublicaSSP) routeToDSPs(ctx context.Context, request *openrtb2.BidRequest) []*openrtb2.BidResponse {
 	responses := make([]*openrtb2.BidResponse, 0)
 	respChan := make(chan *openrtb2.BidResponse, len(p.DSPConnections))
-	
+
 	// Send to each DSP in parallel
 	for _, dsp := range p.DSPConnections {
 		go func(d *DSPConfig) {
@@ -139,7 +139,7 @@ func (p *PublicaSSP) routeToDSPs(ctx context.Context, request *openrtb2.BidReque
 			}
 		}(dsp)
 	}
-	
+
 	// Collect responses with timeout
 	timeout := time.After(p.Timeout)
 	for i := 0; i < len(p.DSPConnections); i++ {
@@ -150,7 +150,7 @@ func (p *PublicaSSP) routeToDSPs(ctx context.Context, request *openrtb2.BidReque
 			break
 		}
 	}
-	
+
 	return responses
 }
 
@@ -159,8 +159,8 @@ func (p *PublicaSSP) sendToDSP(ctx context.Context, dsp *DSPConfig, request *ope
 	// In production, would make actual HTTP request
 	// For now, return mock response
 	return &openrtb2.BidResponse{
-		ID:      request.ID,
-		BidID:   fmt.Sprintf("bid-%s-%d", dsp.ID, time.Now().Unix()),
+		ID:    request.ID,
+		BidID: fmt.Sprintf("bid-%s-%d", dsp.ID, time.Now().Unix()),
 		SeatBid: []openrtb2.SeatBid{
 			{
 				Seat: dsp.BidderCode,
@@ -181,13 +181,13 @@ func (p *PublicaSSP) sendToDSP(ctx context.Context, dsp *DSPConfig, request *ope
 // runAuction selects winning bids
 func (p *PublicaSSP) runAuction(responses []*openrtb2.BidResponse) []openrtb2.Bid {
 	allBids := make([]openrtb2.Bid, 0)
-	
+
 	for _, resp := range responses {
 		for _, seatBid := range resp.SeatBid {
 			allBids = append(allBids, seatBid.Bid...)
 		}
 	}
-	
+
 	// Sort by price (simple first-price auction)
 	// In production, would implement more sophisticated auction logic
 	return allBids
@@ -199,7 +199,7 @@ func (p *PublicaSSP) assemblePods(bids []openrtb2.Bid, request *openrtb2.BidRequ
 		ID:    request.ID,
 		BidID: fmt.Sprintf("pod-%d", time.Now().Unix()),
 	}
-	
+
 	// Group bids into pods
 	podSize := 6 // Standard CTV pod size
 	for i := 0; i < len(bids); i += podSize {
@@ -207,15 +207,15 @@ func (p *PublicaSSP) assemblePods(bids []openrtb2.Bid, request *openrtb2.BidRequ
 		if end > len(bids) {
 			end = len(bids)
 		}
-		
+
 		seatBid := openrtb2.SeatBid{
 			Seat: "publica-pod",
 			Bid:  bids[i:end],
 		}
-		
+
 		response.SeatBid = append(response.SeatBid, seatBid)
 	}
-	
+
 	return response
 }
 
@@ -225,7 +225,7 @@ func (p *PublicaSSP) GenerateVAST(podID string, ads []openrtb2.Bid) (*vast.VAST,
 		Version: "4.0",
 		Ads:     make([]vast.Ad, 0),
 	}
-	
+
 	for i, bid := range ads {
 		ad := vast.Ad{
 			ID:       fmt.Sprintf("ad-%s-%d", podID, i),
@@ -277,10 +277,10 @@ func (p *PublicaSSP) GenerateVAST(podID string, ads []openrtb2.Bid) (*vast.VAST,
 				},
 			},
 		}
-		
+
 		vastResponse.Ads = append(vastResponse.Ads, ad)
 	}
-	
+
 	return vastResponse, nil
 }
 
@@ -315,17 +315,17 @@ type DSPRouter struct {
 
 // DSPFilter determines which DSPs to use
 type DSPFilter struct {
-	GeoTargets    []string
-	ContentTypes  []string
-	MinCPM        decimal.Decimal
-	MaxCPM        decimal.Decimal
+	GeoTargets     []string
+	ContentTypes   []string
+	MinCPM         decimal.Decimal
+	MaxCPM         decimal.Decimal
 	BlockedDomains []string
 }
 
 // Route selects appropriate DSPs for a request
 func (r *DSPRouter) Route(request *openrtb2.BidRequest) []*rtb.DSPConnection {
 	selected := make([]*rtb.DSPConnection, 0)
-	
+
 	for id, dsp := range r.DSPs {
 		if filter, ok := r.Filters[id]; ok {
 			if r.matchesFilter(request, filter) {
@@ -333,7 +333,7 @@ func (r *DSPRouter) Route(request *openrtb2.BidRequest) []*rtb.DSPConnection {
 			}
 		}
 	}
-	
+
 	return selected
 }
 
@@ -348,14 +348,14 @@ func (r *DSPRouter) matchesFilter(request *openrtb2.BidRequest, filter *DSPFilte
 			}
 		}
 	}
-	
+
 	// Check price floors
 	for _, imp := range request.Imp {
 		if imp.BidFloor < float64(filter.MinCPM.InexactFloat64()) ||
-		   imp.BidFloor > float64(filter.MaxCPM.InexactFloat64()) {
+			imp.BidFloor > float64(filter.MaxCPM.InexactFloat64()) {
 			return false
 		}
 	}
-	
+
 	return true
 }

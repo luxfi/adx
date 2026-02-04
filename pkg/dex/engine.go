@@ -36,7 +36,7 @@ func (e *Engine) TransferAsset(assetID, from, to string, amount decimal.Decimal)
 
 	// Perform transfer
 	e.balances[assetID][from] = fromBalance.Sub(amount)
-	
+
 	toBalance := e.balances[assetID][to]
 	e.balances[assetID][to] = toBalance.Add(amount)
 
@@ -64,14 +64,14 @@ func (e *Engine) MintAsset(assetID, account string, amount decimal.Decimal) erro
 	if amount.LessThanOrEqual(decimal.Zero) {
 		return fmt.Errorf("amount must be positive")
 	}
-	
+
 	if e.balances[assetID] == nil {
 		e.balances[assetID] = make(map[string]decimal.Decimal)
 	}
-	
+
 	currentBalance := e.balances[assetID][account]
 	e.balances[assetID][account] = currentBalance.Add(amount)
-	
+
 	return nil
 }
 
@@ -95,12 +95,12 @@ func (e *Engine) BurnAsset(assetID, account string, amount decimal.Decimal) erro
 	if amount.LessThanOrEqual(decimal.Zero) {
 		return fmt.Errorf("amount must be positive")
 	}
-	
+
 	if e.balances[assetID] == nil || e.balances[assetID][account].LessThan(amount) {
 		return fmt.Errorf("insufficient balance")
 	}
-	
+
 	e.balances[assetID][account] = e.balances[assetID][account].Sub(amount)
-	
+
 	return nil
 }

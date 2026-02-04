@@ -21,31 +21,31 @@ type AUSDSettlement struct {
 
 // SettlementMetrics tracks the key performance indicators
 type SettlementMetrics struct {
-	DSO                decimal.Decimal `json:"dso"`                 // Days Sales Outstanding (target: 0-3 days)
-	BadDebtRate        decimal.Decimal `json:"bad_debt_rate"`       // % of unpaid invoices (target: ~0%)
-	DeductionRate      decimal.Decimal `json:"deduction_rate"`      // % deducted post-delivery (target: <0.5%)
-	AvgSettlementTime  time.Duration   `json:"avg_settlement_time"` // Time-to-cash per impression
-	DisputeRate        decimal.Decimal `json:"dispute_rate"`        // % disputed settlements (target: <0.1%)
-	FillRate           decimal.Decimal `json:"fill_rate"`           // % of inventory filled
-	NetECPMUplift      decimal.Decimal `json:"net_ecpm_uplift"`     // vs baseline exchanges
-	TotalVolumeAUSD    decimal.Decimal `json:"total_volume_ausd"`
-	ActiveCampaigns    uint64          `json:"active_campaigns"`
-	ActivePublishers   uint64          `json:"active_publishers"`
-	RealTimePayouts    uint64          `json:"realtime_payouts_24h"`
+	DSO               decimal.Decimal `json:"dso"`                 // Days Sales Outstanding (target: 0-3 days)
+	BadDebtRate       decimal.Decimal `json:"bad_debt_rate"`       // % of unpaid invoices (target: ~0%)
+	DeductionRate     decimal.Decimal `json:"deduction_rate"`      // % deducted post-delivery (target: <0.5%)
+	AvgSettlementTime time.Duration   `json:"avg_settlement_time"` // Time-to-cash per impression
+	DisputeRate       decimal.Decimal `json:"dispute_rate"`        // % disputed settlements (target: <0.1%)
+	FillRate          decimal.Decimal `json:"fill_rate"`           // % of inventory filled
+	NetECPMUplift     decimal.Decimal `json:"net_ecpm_uplift"`     // vs baseline exchanges
+	TotalVolumeAUSD   decimal.Decimal `json:"total_volume_ausd"`
+	ActiveCampaigns   uint64          `json:"active_campaigns"`
+	ActivePublishers  uint64          `json:"active_publishers"`
+	RealTimePayouts   uint64          `json:"realtime_payouts_24h"`
 }
 
 // DeliveryProof represents cryptographic proof of ad impression delivery
 type DeliveryProof struct {
-	ImpressionID     string    `json:"impression_id"`
-	ReservationID    string    `json:"reservation_id"`
-	VRFNonce         string    `json:"vrf_nonce"`          // Client-side VRF ticket
-	ViewabilityScore float64   `json:"viewability_score"`  // IAB viewability %
-	TimeInView       uint64    `json:"time_in_view_ms"`    // Milliseconds viewed
-	PlayerSignature  string    `json:"player_signature"`   // Video player attestation
-	CDNSignature     string    `json:"cdn_signature"`      // CDN edge attestation
-	MeasurementAttest string   `json:"measurement_attest,omitempty"` // 3P measurement
-	Timestamp        time.Time `json:"timestamp"`
-	UserHash         string    `json:"user_hash"`          // Privacy-preserving user ID
+	ImpressionID      string    `json:"impression_id"`
+	ReservationID     string    `json:"reservation_id"`
+	VRFNonce          string    `json:"vrf_nonce"`                    // Client-side VRF ticket
+	ViewabilityScore  float64   `json:"viewability_score"`            // IAB viewability %
+	TimeInView        uint64    `json:"time_in_view_ms"`              // Milliseconds viewed
+	PlayerSignature   string    `json:"player_signature"`             // Video player attestation
+	CDNSignature      string    `json:"cdn_signature"`                // CDN edge attestation
+	MeasurementAttest string    `json:"measurement_attest,omitempty"` // 3P measurement
+	Timestamp         time.Time `json:"timestamp"`
+	UserHash          string    `json:"user_hash"` // Privacy-preserving user ID
 }
 
 // DeliveryOracle aggregates delivery proofs and posts Merkle roots on-chain
@@ -57,9 +57,9 @@ type DeliveryOracle struct {
 // NewAUSDSettlement creates the automated settlement system
 func NewAUSDSettlement(escrow *chainvm.EscrowManager, slots *chainvm.AdSlotManager) *AUSDSettlement {
 	return &AUSDSettlement{
-		escrow:  escrow,
-		slots:   slots,
-		oracle:  &DeliveryOracle{
+		escrow: escrow,
+		slots:  slots,
+		oracle: &DeliveryOracle{
 			witnesses: make(map[string][]DeliveryProof),
 			roots:     make(map[string]string),
 		},
@@ -130,9 +130,9 @@ func (s *AUSDSettlement) SubmitDeliveryProof(ctx context.Context, proof *Deliver
 			return nil, fmt.Errorf("settlement failed: %v", err)
 		}
 		return &DeliveryProofResponse{
-			Success:    true,
-			Settled:    true,
-			SettledAt:  time.Now(),
+			Success:   true,
+			Settled:   true,
+			SettledAt: time.Now(),
 		}, nil
 	}
 
@@ -252,11 +252,11 @@ func (s *AUSDSettlement) CreateProgrammaticGuaranteed(ctx context.Context, req *
 		DealID:       req.DealID,
 		EscrowAmount: pgResp.EscrowAmount,
 		Terms: PGTerms{
-			AutoPenalty:     true,
-			PenaltyRate:     req.PenaltyRate,
-			DeliveryWindow:  req.EndTime.Sub(req.StartTime),
-			PaymentTerms:    "T+0 on verified delivery",
-			DisputeWindow:   48 * time.Hour,
+			AutoPenalty:    true,
+			PenaltyRate:    req.PenaltyRate,
+			DeliveryWindow: req.EndTime.Sub(req.StartTime),
+			PaymentTerms:   "T+0 on verified delivery",
+			DisputeWindow:  48 * time.Hour,
 		},
 	}, nil
 }
@@ -339,16 +339,16 @@ func (s *AUSDSettlement) updateSettlementMetrics(settled uint64, revenue decimal
 // Request/Response types
 
 type ImpressionWinRequest struct {
-	ReservationID   string          `json:"reservation_id"`
-	CampaignID      string          `json:"campaign_id"`
-	Publisher       string          `json:"publisher"`
-	WinPrice        decimal.Decimal `json:"win_price"`
-	Placement       string          `json:"placement"`
-	UserGeo         string          `json:"user_geo"`
-	DeviceType      string          `json:"device_type"`
-	Categories      []string        `json:"categories"`
-	MinViewability  float64         `json:"min_viewability"`
-	UserHash        string          `json:"user_hash"`
+	ReservationID  string          `json:"reservation_id"`
+	CampaignID     string          `json:"campaign_id"`
+	Publisher      string          `json:"publisher"`
+	WinPrice       decimal.Decimal `json:"win_price"`
+	Placement      string          `json:"placement"`
+	UserGeo        string          `json:"user_geo"`
+	DeviceType     string          `json:"device_type"`
+	Categories     []string        `json:"categories"`
+	MinViewability float64         `json:"min_viewability"`
+	UserHash       string          `json:"user_hash"`
 }
 
 type ImpressionWinResponse struct {
@@ -386,9 +386,9 @@ type PGDealResponse struct {
 }
 
 type PGTerms struct {
-	AutoPenalty     bool          `json:"auto_penalty"`
-	PenaltyRate     decimal.Decimal `json:"penalty_rate"`
-	DeliveryWindow  time.Duration `json:"delivery_window"`
-	PaymentTerms    string        `json:"payment_terms"`
-	DisputeWindow   time.Duration `json:"dispute_window"`
+	AutoPenalty    bool            `json:"auto_penalty"`
+	PenaltyRate    decimal.Decimal `json:"penalty_rate"`
+	DeliveryWindow time.Duration   `json:"delivery_window"`
+	PaymentTerms   string          `json:"payment_terms"`
+	DisputeWindow  time.Duration   `json:"dispute_window"`
 }

@@ -31,12 +31,12 @@ var (
 func main() {
 	// Parse flags
 	var (
-		port          = flag.Int("port", 8080, "HTTP server port")
-		wsPort        = flag.Int("ws-port", 8081, "WebSocket server port")
-		fdbCluster    = flag.String("fdb-cluster", "", "FoundationDB cluster file")
-		floorCPM      = flag.Float64("floor-cpm", 0.50, "Floor price CPM")
+		port           = flag.Int("port", 8080, "HTTP server port")
+		wsPort         = flag.Int("ws-port", 8081, "WebSocket server port")
+		fdbCluster     = flag.String("fdb-cluster", "", "FoundationDB cluster file")
+		floorCPM       = flag.Float64("floor-cpm", 0.50, "Floor price CPM")
 		auctionTimeout = flag.Duration("auction-timeout", 100*time.Millisecond, "Auction timeout")
-		version       = flag.Bool("version", false, "Show version information")
+		version        = flag.Bool("version", false, "Show version information")
 	)
 	flag.Parse()
 
@@ -71,9 +71,9 @@ func main() {
 		FloorPrice:     decimal.NewFromFloat(*floorCPM),
 		Revenue:        big.NewInt(0),
 		CTVOptimizer: &rtb.CTVOptimizer{
-			PublicaEnabled:            true,
-			PodFillRate:               0.85,
-			OptimalPodSize:            6,
+			PublicaEnabled:           true,
+			PodFillRate:              0.85,
+			OptimalPodSize:           6,
 			CreativeQualityThreshold: 0.7,
 			MinVideoBitrate:          2000000, // 2 Mbps
 			RequiredFormats:          []string{"video/mp4", "video/webm"},
@@ -173,7 +173,7 @@ func makeVASTHandler() http.HandlerFunc {
 		// Parse query parameters
 		width := r.URL.Query().Get("w")
 		height := r.URL.Query().Get("h")
-		
+
 		// Create sample VAST response
 		vastResp := &vast.VAST{
 			Version: "4.0",
@@ -234,7 +234,7 @@ func makeMinerHandler(exchange *rtb.RTBExchange) http.HandlerFunc {
 		upgrader := websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		}
-		
+
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Printf("WebSocket upgrade failed: %v", err)
@@ -243,7 +243,7 @@ func makeMinerHandler(exchange *rtb.RTBExchange) http.HandlerFunc {
 		defer conn.Close()
 
 		log.Printf("New miner connected from %s", r.RemoteAddr)
-		
+
 		// Handle miner connection
 		for {
 			var msg map[string]interface{}
@@ -251,7 +251,7 @@ func makeMinerHandler(exchange *rtb.RTBExchange) http.HandlerFunc {
 				log.Printf("Miner disconnected: %v", err)
 				break
 			}
-			
+
 			// Process miner messages
 			log.Printf("Miner message: %v", msg)
 		}
@@ -261,7 +261,7 @@ func makeMinerHandler(exchange *rtb.RTBExchange) http.HandlerFunc {
 func startWebSocketServer(port int, exchange *rtb.RTBExchange) {
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("WebSocket server listening on %s", addr)
-	
+
 	http.HandleFunc("/ws", makeMinerHandler(exchange))
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("WebSocket server failed: %v", err)

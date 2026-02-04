@@ -4,14 +4,14 @@
 package log
 
 import (
-	"github.com/luxfi/node/utils/logging"
+	log "github.com/luxfi/log/logger"
 	"go.uber.org/zap"
 )
 
 // Logger is a wrapper around luxfi's Logger interface
 type Logger interface {
 	Debug(msg string)
-	Info(msg string) 
+	Info(msg string)
 	Warn(msg string)
 	Error(msg string)
 	Fatal(msg string)
@@ -47,17 +47,17 @@ func NewWithLevel(level string) Logger {
 
 	// Create logger with default config
 	config := logging.Config{
-		DisplayLevel: lvl,
-		LogLevel:     lvl,
+		DisplayLevel:            lvl,
+		LogLevel:                lvl,
 		DisableWriterDisplaying: false,
 	}
-	
+
 	factory := logging.NewFactory(config)
 	log, err := factory.Make("adx")
 	if err != nil {
 		return &noOpLogger{}
 	}
-	
+
 	return &luxLogger{log: log}
 }
 
@@ -75,13 +75,13 @@ func NewLogger(name string) Logger {
 		DisplayLevel: logging.Info,
 		LogLevel:     logging.Info,
 	}
-	
+
 	factory := logging.NewFactory(config)
 	log, err := factory.Make(name)
 	if err != nil {
 		return &noOpLogger{}
 	}
-	
+
 	return &luxLogger{log: log}
 }
 
@@ -95,7 +95,7 @@ func (l *luxLogger) Info(msg string) {
 	l.log.Info(msg)
 }
 
-// Warn logs a warning message  
+// Warn logs a warning message
 func (l *luxLogger) Warn(msg string) {
 	l.log.Warn(msg)
 }

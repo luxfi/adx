@@ -62,7 +62,7 @@ func NewBudgetManager(logger log.Logger) *BudgetManager {
 func (bm *BudgetManager) SetBudget(advertiserID ids.ID, amount uint64) error {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	
+
 	budget := &Budget{
 		AdvertiserID: advertiserID,
 		Total:        amount,
@@ -70,14 +70,14 @@ func (bm *BudgetManager) SetBudget(advertiserID ids.ID, amount uint64) error {
 		Remaining:    amount,
 		LastUpdated:  time.Now(),
 	}
-	
+
 	// Create commitment to initial budget
 	budget.Commitment = bm.createBudgetCommitment(budget)
-	
+
 	bm.budgets[advertiserID] = budget
-	
+
 	bm.log.Info("Budget funded")
-	
+
 	return nil
 }
 
@@ -89,28 +89,28 @@ func (bm *BudgetManager) DeductBudget(
 ) (uint64, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	
+
 	budget, exists := bm.budgets[advertiserID]
 	if !exists {
 		return 0, errors.New("budget not found")
 	}
-	
+
 	if budget.Remaining < amount {
 		return 0, ErrInsufficientBudget
 	}
-	
+
 	// Store previous commitment
 	prevCommitment := budget.Commitment
-	
+
 	// Update budget
 	budget.Spent += amount
 	budget.Remaining -= amount
 	budget.LastUpdated = time.Now()
-	
+
 	// Create new commitment
 	newCommitment := bm.createBudgetCommitment(budget)
 	budget.Commitment = newCommitment
-	
+
 	// Generate ZK proof of valid deduction (for audit)
 	_ = bm.generateBudgetProof(
 		prevCommitment,
@@ -118,12 +118,12 @@ func (bm *BudgetManager) DeductBudget(
 		amount,
 		budget.Remaining,
 	)
-	
+
 	// Track pending spend
 	bm.pending[advertiserID] += amount
-	
+
 	bm.log.Debug("Budget reserved")
-	
+
 	return budget.Remaining, nil
 }
 
@@ -131,20 +131,20 @@ func (bm *BudgetManager) DeductBudget(
 func (bm *BudgetManager) GetBudget(advertiserID ids.ID) uint64 {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
-	
+
 	budget, exists := bm.budgets[advertiserID]
 	if !exists {
 		return 0
 	}
-	
+
 	return budget.Remaining
 }
 
 // BudgetProof proves budget operations are valid
 type BudgetProof struct {
-	CmBudgetPrev []byte `json:"cm_budget_prev"`
-	CmBudgetNew  []byte `json:"cm_budget_new"`
-	ProofDelta   []byte `json:"proof_delta"`
+	CmBudgetPrev []byte    `json:"cm_budget_prev"`
+	CmBudgetNew  []byte    `json:"cm_budget_new"`
+	ProofDelta   []byte    `json:"proof_delta"`
 	Timestamp    time.Time `json:"timestamp"`
 }
 
@@ -152,22 +152,22 @@ type BudgetProof struct {
 func (bm *BudgetManager) createBudgetCommitment(budget *Budget) []byte {
 	// Commit to (total, spent, remaining)
 	data := make([]byte, 24)
-	
+
 	// Total (8 bytes)
 	for i := 0; i < 8; i++ {
 		data[i] = byte(budget.Total >> (8 * (7 - i)))
 	}
-	
+
 	// Spent (8 bytes)
 	for i := 0; i < 8; i++ {
 		data[8+i] = byte(budget.Spent >> (8 * (7 - i)))
 	}
-	
+
 	// Remaining (8 bytes)
 	for i := 0; i < 8; i++ {
 		data[16+i] = byte(budget.Remaining >> (8 * (7 - i)))
 	}
-	
+
 	return crypto.CreateCommitment(data)
 }
 
@@ -184,19 +184,19 @@ func (bm *BudgetManager) generateBudgetProof(
 	// 1. new_remaining = prev_remaining - delta
 	// 2. new_remaining >= 0
 	// 3. Commitments are correctly formed
-	
+
 	proofData := make([]byte, 16)
-	
+
 	// Delta (8 bytes)
 	for i := 0; i < 8; i++ {
 		proofData[i] = byte(delta >> (8 * (7 - i)))
 	}
-	
+
 	// Remaining (8 bytes)
 	for i := 0; i < 8; i++ {
 		proofData[8+i] = byte(remaining >> (8 * (7 - i)))
 	}
-	
+
 	return &BudgetProof{
 		CmBudgetPrev: prevCommitment,
 		CmBudgetNew:  newCommitment,
@@ -213,16 +213,16 @@ func (bm *BudgetManager) CreateSettlement(
 ) (*SettlementReceipt, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	
+
 	// Get pending amount for advertiser
 	amount, exists := bm.pending[advertiserID]
 	if !exists || amount == 0 {
 		return nil, errors.New("no pending settlement")
 	}
-	
+
 	// Generate settlement proof
 	proof := bm.generateSettlementProof(advertiserID, publisherID, amount, period)
-	
+
 	receipt := &SettlementReceipt{
 		AdvertiserID: advertiserID,
 		PublisherID:  publisherID,
@@ -230,15 +230,15 @@ func (bm *BudgetManager) CreateSettlement(
 		Period:       period,
 		Proof:        proof,
 	}
-	
+
 	// Clear pending amount
 	delete(bm.pending, advertiserID)
-	
+
 	// Store receipt
 	bm.receipts = append(bm.receipts, receipt)
-	
+
 	bm.log.Info("Settlement completed")
-	
+
 	return receipt, nil
 }
 
@@ -252,18 +252,18 @@ func (bm *BudgetManager) generateSettlementProof(
 	// Simplified proof generation
 	// In production, use actual ZK proving system
 	// Proves: amount == sum of accepted auction prices over period
-	
+
 	data := make([]byte, 0)
 	data = append(data, advertiserID[:]...)
 	data = append(data, publisherID[:]...)
-	
+
 	// Amount (8 bytes)
 	amountBytes := make([]byte, 8)
 	for i := 0; i < 8; i++ {
 		amountBytes[i] = byte(amount >> (8 * (7 - i)))
 	}
 	data = append(data, amountBytes...)
-	
+
 	// Period timestamp (8 bytes)
 	periodBytes := make([]byte, 8)
 	periodUnix := period.Unix()
@@ -271,7 +271,7 @@ func (bm *BudgetManager) generateSettlementProof(
 		periodBytes[i] = byte(periodUnix >> (8 * (7 - i)))
 	}
 	data = append(data, periodBytes...)
-	
+
 	return crypto.CreateCommitment(data)
 }
 
@@ -304,7 +304,7 @@ func (bm *BudgetManager) CreateSettlementHeader(
 		amountBytes[i] = byte(receipt.Amount >> (8 * (7 - i)))
 	}
 	cmAmount := crypto.CreateCommitment(amountBytes)
-	
+
 	return &core.SettlementHeader{
 		BaseHeader: core.BaseHeader{
 			Type:      core.HeaderTypeSettlement,

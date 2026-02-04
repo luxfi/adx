@@ -74,10 +74,10 @@ func TestMediaFile_Validate(t *testing.T) {
 
 func TestAdPod_Duration(t *testing.T) {
 	pod := &AdPod{
-		ID:            "pod-1",
-		MaxDuration:   120,
-		MaxAds:        6,
-		AdBreakType:   "linear",
+		ID:          "pod-1",
+		MaxDuration: 120,
+		MaxAds:      6,
+		AdBreakType: "linear",
 	}
 
 	if pod.MaxDuration != 120 {

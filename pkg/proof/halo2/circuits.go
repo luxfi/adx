@@ -68,11 +68,11 @@ type PoseidonHash struct {
 // NewPoseidonHash creates a new Poseidon hash instance
 func NewPoseidonHash() *PoseidonHash {
 	field := NewField()
-	
+
 	// Simplified constants - in production use proper Poseidon parameters
 	rounds := 8
 	width := 3
-	
+
 	// Generate round constants
 	roundConst := make([][]*big.Int, rounds)
 	for i := 0; i < rounds; i++ {
@@ -81,7 +81,7 @@ func NewPoseidonHash() *PoseidonHash {
 			roundConst[i][j] = new(big.Int).SetInt64(int64(i*width + j + 1))
 		}
 	}
-	
+
 	// Generate MDS matrix
 	mdsMatrix := make([][]*big.Int, width)
 	for i := 0; i < width; i++ {
@@ -90,7 +90,7 @@ func NewPoseidonHash() *PoseidonHash {
 			mdsMatrix[i][j] = new(big.Int).SetInt64(int64(i + j + 1))
 		}
 	}
-	
+
 	return &PoseidonHash{
 		field:      field,
 		roundConst: roundConst,
@@ -102,7 +102,7 @@ func NewPoseidonHash() *PoseidonHash {
 // Hash computes Poseidon hash of inputs
 func (p *PoseidonHash) Hash(inputs []*big.Int) *big.Int {
 	state := make([]*big.Int, 3)
-	
+
 	// Initialize state with inputs (padding with zeros)
 	for i := 0; i < len(inputs) && i < 3; i++ {
 		state[i] = new(big.Int).Set(inputs[i])
@@ -110,21 +110,21 @@ func (p *PoseidonHash) Hash(inputs []*big.Int) *big.Int {
 	for i := len(inputs); i < 3; i++ {
 		state[i] = big.NewInt(0)
 	}
-	
+
 	// Apply Poseidon rounds
 	for round := 0; round < p.rounds; round++ {
 		// Add round constants
 		for i := 0; i < 3; i++ {
 			state[i] = p.field.Add(state[i], p.roundConst[round][i])
 		}
-		
+
 		// S-box (x^5)
 		for i := 0; i < 3; i++ {
 			x2 := p.field.Mul(state[i], state[i])
 			x4 := p.field.Mul(x2, x2)
 			state[i] = p.field.Mul(x4, state[i])
 		}
-		
+
 		// MDS matrix multiplication
 		newState := make([]*big.Int, 3)
 		for i := 0; i < 3; i++ {
@@ -136,7 +136,7 @@ func (p *PoseidonHash) Hash(inputs []*big.Int) *big.Int {
 		}
 		state = newState
 	}
-	
+
 	return state[0]
 }
 
@@ -144,13 +144,13 @@ func (p *PoseidonHash) Hash(inputs []*big.Int) *big.Int {
 type Halo2Proof struct {
 	// Commitments to witness polynomials
 	WitnessCommitments [][]byte
-	
+
 	// Quotient polynomial commitment
 	QuotientCommitment []byte
-	
+
 	// Opening proofs
 	OpeningProof []byte
-	
+
 	// Evaluation claims
 	Evaluations map[string]*big.Int
 }
@@ -194,7 +194,7 @@ func (ac *AuctionCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 	if _, err := rand.Read(tau); err != nil {
 		return nil, nil, ErrSetupFailed
 	}
-	
+
 	// Create SRS powers of tau
 	tauBig := new(big.Int).SetBytes(tau)
 	powers := make([]*big.Int, ac.NumBids+10)
@@ -202,22 +202,22 @@ func (ac *AuctionCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 	for i := 1; i < len(powers); i++ {
 		powers[i] = ac.field.Mul(powers[i-1], tauBig)
 	}
-	
+
 	pk := &ProvingKey{
 		CircuitID: "auction_halo2_v1",
 		SRS:       powers,
 		NumBids:   ac.NumBids,
 		Reserve:   ac.Reserve,
 	}
-	
+
 	vk := &VerifyingKey{
 		CircuitID:       "auction_halo2_v1",
-		CommitmentKey:   powers[:2], // G1 and G2 elements
+		CommitmentKey:   powers[:2],     // G1 and G2 elements
 		ConstraintCount: ac.NumBids * 3, // Constraints for max selection, second price, range
 	}
-	
+
 	ac.log.Info("Halo2 auction circuit setup complete")
-	
+
 	return pk, vk, nil
 }
 
@@ -227,50 +227,50 @@ func (ac *AuctionCircuit) Prove(pk *ProvingKey, witness *AuctionWitness) (*Halo2
 	if witness.WinnerIndex >= ac.NumBids {
 		return nil, ErrProvingFailed
 	}
-	
+
 	// Create Poseidon commitments to witness values
 	commitments := make([][]byte, 0)
-	
+
 	// Commit to bids
 	for _, bid := range witness.Bids {
 		commitment := ac.poseidon.Hash([]*big.Int{bid})
 		commitments = append(commitments, commitment.Bytes())
 	}
-	
+
 	// Commit to winner selection
 	winnerCommit := ac.poseidon.Hash([]*big.Int{
 		big.NewInt(int64(witness.WinnerIndex)),
 		witness.WinningBid,
 	})
 	commitments = append(commitments, winnerCommit.Bytes())
-	
+
 	// Commit to price
 	priceCommit := ac.poseidon.Hash([]*big.Int{witness.ClearingPrice})
 	commitments = append(commitments, priceCommit.Bytes())
-	
+
 	// Create quotient polynomial for constraint satisfaction
 	// Q(X) = (constraints(X)) / Z_H(X) where Z_H vanishes on domain
 	quotient := ac.computeQuotient(witness)
 	quotientCommit := ac.poseidon.Hash([]*big.Int{quotient})
-	
+
 	// Generate opening proof (simplified)
 	openingProof := ac.generateOpeningProof(witness, commitments)
-	
+
 	// Create evaluations
 	evaluations := make(map[string]*big.Int)
 	evaluations["winner_bid"] = witness.WinningBid
 	evaluations["clearing_price"] = witness.ClearingPrice
 	evaluations["num_valid_bids"] = big.NewInt(int64(len(witness.Bids)))
-	
+
 	proof := &Halo2Proof{
 		WitnessCommitments: commitments,
 		QuotientCommitment: quotientCommit.Bytes(),
 		OpeningProof:       openingProof,
 		Evaluations:        evaluations,
 	}
-	
+
 	ac.log.Debug("Halo2 auction proof generated")
-	
+
 	return proof, nil
 }
 
@@ -278,9 +278,9 @@ func (ac *AuctionCircuit) Prove(pk *ProvingKey, witness *AuctionWitness) (*Halo2
 func (ac *AuctionCircuit) computeQuotient(witness *AuctionWitness) *big.Int {
 	// Simplified quotient computation
 	// In production, this would involve polynomial division
-	
+
 	constraints := big.NewInt(0)
-	
+
 	// Constraint 1: Winner has maximum bid
 	for i, bid := range witness.Bids {
 		if i != witness.WinnerIndex {
@@ -289,14 +289,14 @@ func (ac *AuctionCircuit) computeQuotient(witness *AuctionWitness) *big.Int {
 			constraints = ac.field.Add(constraints, diff)
 		}
 	}
-	
+
 	// Constraint 2: Price is second price or reserve
 	priceDiff := ac.field.Sub(witness.ClearingPrice, witness.SecondPrice)
 	if witness.SecondPrice.Cmp(ac.Reserve) < 0 {
 		priceDiff = ac.field.Sub(witness.ClearingPrice, ac.Reserve)
 	}
 	constraints = ac.field.Add(constraints, priceDiff)
-	
+
 	return constraints
 }
 
@@ -304,19 +304,19 @@ func (ac *AuctionCircuit) computeQuotient(witness *AuctionWitness) *big.Int {
 func (ac *AuctionCircuit) generateOpeningProof(witness *AuctionWitness, commitments [][]byte) []byte {
 	// Simplified opening proof
 	// In production, use KZG or IPA opening
-	
+
 	data := make([]byte, 0)
 	for _, commit := range commitments {
 		data = append(data, commit...)
 	}
-	
+
 	// Add witness hash
 	witnessHash := ac.poseidon.Hash([]*big.Int{
 		witness.WinningBid,
 		witness.ClearingPrice,
 	})
 	data = append(data, witnessHash.Bytes()...)
-	
+
 	h := sha256.Sum256(data)
 	return h[:]
 }
@@ -328,36 +328,36 @@ func (ac *AuctionCircuit) Verify(vk *VerifyingKey, publicInputs *AuctionPublicIn
 		ac.log.Debug("Invalid commitment count")
 		return false
 	}
-	
+
 	// Verify public inputs match claimed evaluations
 	if proof.Evaluations["clearing_price"].Cmp(big.NewInt(int64(publicInputs.ClearingPrice))) != 0 {
 		ac.log.Debug("Price mismatch")
 		return false
 	}
-	
+
 	// Verify quotient polynomial commitment
 	if len(proof.QuotientCommitment) != 32 {
 		ac.log.Debug("Invalid quotient commitment")
 		return false
 	}
-	
+
 	// Verify opening proof (simplified)
 	// In production, verify KZG or IPA opening
 	if len(proof.OpeningProof) < 32 {
 		ac.log.Debug("Invalid opening proof")
 		return false
 	}
-	
+
 	// Check constraint satisfaction at random point (Fiat-Shamir)
 	_ = ac.poseidon.Hash([]*big.Int{
 		new(big.Int).SetBytes(proof.QuotientCommitment),
 	})
-	
+
 	// Simplified constraint check
 	// In production, evaluate constraint polynomials at challenge point
-	
+
 	ac.log.Debug("Halo2 proof verified")
-	
+
 	return true
 }
 
@@ -411,25 +411,25 @@ func (bc *BudgetCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 	if _, err := rand.Read(tau); err != nil {
 		return nil, nil, ErrSetupFailed
 	}
-	
+
 	tauBig := new(big.Int).SetBytes(tau)
 	powers := make([]*big.Int, 10)
 	powers[0] = big.NewInt(1)
 	for i := 1; i < len(powers); i++ {
 		powers[i] = bc.field.Mul(powers[i-1], tauBig)
 	}
-	
+
 	pk := &ProvingKey{
 		CircuitID: "budget_halo2_v1",
 		SRS:       powers,
 	}
-	
+
 	vk := &VerifyingKey{
 		CircuitID:       "budget_halo2_v1",
 		CommitmentKey:   powers[:2],
 		ConstraintCount: 2, // new = old - delta, new >= 0
 	}
-	
+
 	return pk, vk, nil
 }
 
@@ -440,43 +440,43 @@ func (bc *BudgetCircuit) Prove(pk *ProvingKey, witness *BudgetWitness) (*Halo2Pr
 	if expected.Cmp(witness.NewBudget) != 0 {
 		return nil, ErrProvingFailed
 	}
-	
+
 	// Verify: new >= 0
 	if witness.NewBudget.Sign() < 0 {
 		return nil, ErrProvingFailed
 	}
-	
+
 	// Create commitments
 	oldCommit := bc.poseidon.Hash([]*big.Int{witness.OldBudget})
 	deltaCommit := bc.poseidon.Hash([]*big.Int{witness.Delta})
 	newCommit := bc.poseidon.Hash([]*big.Int{witness.NewBudget})
-	
+
 	commitments := [][]byte{
 		oldCommit.Bytes(),
 		deltaCommit.Bytes(),
 		newCommit.Bytes(),
 	}
-	
+
 	// Quotient for constraint satisfaction
 	quotient := bc.field.Sub(
 		bc.field.Add(witness.NewBudget, witness.Delta),
 		witness.OldBudget,
 	)
 	quotientCommit := bc.poseidon.Hash([]*big.Int{quotient})
-	
+
 	// Opening proof
 	h := sha256.Sum256(append(
 		witness.NewBudget.Bytes(),
 		witness.Delta.Bytes()...,
 	))
 	openingProof := h[:]
-	
+
 	evaluations := make(map[string]*big.Int)
 	evaluations["new_budget"] = witness.NewBudget
 	evaluations["delta"] = witness.Delta
-	
+
 	bc.log.Debug("Budget proof generated")
-	
+
 	return &Halo2Proof{
 		WitnessCommitments: commitments,
 		QuotientCommitment: quotientCommit.Bytes(),
@@ -491,12 +491,12 @@ func (bc *BudgetCircuit) Verify(vk *VerifyingKey, publicInputs *BudgetPublicInpu
 	if len(proof.WitnessCommitments) != 3 {
 		return false
 	}
-	
+
 	// Verify public delta matches
 	if proof.Evaluations["delta"].Cmp(big.NewInt(int64(publicInputs.Delta))) != 0 {
 		return false
 	}
-	
+
 	// Simplified verification
 	return len(proof.OpeningProof) > 0
 }
@@ -535,25 +535,25 @@ func (fc *FrequencyCircuit) Setup() (*ProvingKey, *VerifyingKey, error) {
 	if _, err := rand.Read(tau); err != nil {
 		return nil, nil, ErrSetupFailed
 	}
-	
+
 	tauBig := new(big.Int).SetBytes(tau)
 	powers := make([]*big.Int, 10)
 	powers[0] = big.NewInt(1)
 	for i := 1; i < len(powers); i++ {
 		powers[i] = fc.field.Mul(powers[i-1], tauBig)
 	}
-	
+
 	pk := &ProvingKey{
 		CircuitID: "frequency_halo2_v1",
 		SRS:       powers,
 	}
-	
+
 	vk := &VerifyingKey{
 		CircuitID:       "frequency_halo2_v1",
 		CommitmentKey:   powers[:2],
 		ConstraintCount: 2, // after = before + 1, after <= cap
 	}
-	
+
 	return pk, vk, nil
 }
 
@@ -564,37 +564,37 @@ func (fc *FrequencyCircuit) Prove(pk *ProvingKey, witness *FrequencyWitness) (*H
 	if expected.Cmp(witness.CounterAfter) != 0 {
 		return nil, ErrProvingFailed
 	}
-	
+
 	// Verify: after <= cap
 	if witness.CounterAfter.Cmp(big.NewInt(int64(fc.Cap))) > 0 {
 		return nil, ErrProvingFailed
 	}
-	
+
 	// Create commitments
 	beforeCommit := fc.poseidon.Hash([]*big.Int{witness.CounterBefore})
 	afterCommit := fc.poseidon.Hash([]*big.Int{witness.CounterAfter})
-	
+
 	commitments := [][]byte{
 		beforeCommit.Bytes(),
 		afterCommit.Bytes(),
 	}
-	
+
 	// Quotient
 	quotient := fc.field.Sub(witness.CounterAfter, expected)
 	quotientCommit := fc.poseidon.Hash([]*big.Int{quotient})
-	
+
 	// Opening proof
 	h2 := sha256.Sum256(append(
 		witness.CounterBefore.Bytes(),
 		witness.CounterAfter.Bytes()...,
 	))
 	openingProof := h2[:]
-	
+
 	evaluations := make(map[string]*big.Int)
 	evaluations["counter_after"] = witness.CounterAfter
-	
+
 	fc.log.Debug("Frequency proof generated")
-	
+
 	return &Halo2Proof{
 		WitnessCommitments: commitments,
 		QuotientCommitment: quotientCommit.Bytes(),
@@ -609,13 +609,13 @@ func (fc *FrequencyCircuit) Verify(vk *VerifyingKey, publicInputs *FrequencyPubl
 	if len(proof.WitnessCommitments) != 2 {
 		return false
 	}
-	
+
 	// Verify counter is within cap
 	counter := proof.Evaluations["counter_after"]
 	if counter.Cmp(big.NewInt(int64(publicInputs.Cap))) > 0 {
 		return false
 	}
-	
+
 	return len(proof.OpeningProof) > 0
 }
 
