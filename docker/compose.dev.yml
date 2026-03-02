@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database (required for DEX)
   postgres:
-    image: ghcr.io/hanzoai/sql:17-alpine
+    image: ghcr.io/hanzoai/sql:latest
     container_name: lux-dex-db
     environment:
       - POSTGRES_DB=luxdex
