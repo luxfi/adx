@@ -1,5 +1,5 @@
 # Multi-stage build for ADX
-FROM golang:1.21-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # Install build dependencies including FoundationDB client
 RUN apk add --no-cache git make gcc g++ musl-dev wget && \
