@@ -1,6 +1,6 @@
 module github.com/luxfi/adx
 
-go 1.26
+go 1.26.1
 
 require (
 	// Additional dependencies
