@@ -1,189 +1,156 @@
+version: '3.8'
+
 services:
-  # DEX Backend - Single Node with K=1 Consensus
-  dex-node:
-    build:
-      context: ../backend
-      dockerfile: ../docker/backend/Dockerfile
-    container_name: lux-dex-node
-    hostname: dex-node-1
+  # FoundationDB cluster
+  fdb-coordinator:
+    image: foundationdb/foundationdb:7.3.27
+    container_name: fdb-coordinator
+    hostname: fdb-coordinator
     environment:
-      - NODE_ID=node-1
-      - NODE_PORT=5000
-      - HTTP_PORT=8080
-      - WS_PORT=8081
-      - CONSENSUS_K=1  # Single node consensus
-      - CONSENSUS_N=1  # Total nodes = 1
-      - ENGINE_TYPE=hybrid
-      - TEST_MODE=true
-      - ENABLE_PERPS=true
-      - ENABLE_VAULTS=true
-      - ENABLE_LENDING=true
-      - LOG_LEVEL=info
-      - METRICS_ENABLED=true
-      - METRICS_PORT=9090
-    ports:
-      - "8080:8080"    # HTTP API
-      - "8081:8081"    # WebSocket
-      - "5000:5000"    # P2P/Consensus
-      - "9090:9090"    # Metrics
+      - FDB_CLUSTER_FILE=/var/fdb/fdb.cluster
+      - FDB_COORDINATOR=1
     volumes:
-      - dex-data:/data
-      - ../backend/config:/config
+      - fdb-data:/var/fdb/data
+      - fdb-logs:/var/fdb/logs
+      - ./fdb.cluster:/var/fdb/fdb.cluster
     networks:
-      - dex-network
-      - lux-monitoring
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      - adx-network
+    ports:
+      - "4500:4500"
 
-  # UI Frontend
-  dex-ui:
-    build:
-      context: ../ui
-      dockerfile: ../docker/ui/Dockerfile
-      args:
-        - NEXT_PUBLIC_WS_URL=ws://localhost:8081
-        - NEXT_PUBLIC_API_URL=http://localhost:8080
-    container_name: lux-dex-ui
+  fdb-storage:
+    image: foundationdb/foundationdb:7.3.27
+    container_name: fdb-storage
+    hostname: fdb-storage
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8081
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
-      - NEXT_PUBLIC_BASE_PATH=/v2
-    ports:
-      - "3000:3000"    # Next.js server
+      - FDB_CLUSTER_FILE=/var/fdb/fdb.cluster
+    volumes:
+      - fdb-data:/var/fdb/data
+      - fdb-logs:/var/fdb/logs
+      - ./fdb.cluster:/var/fdb/fdb.cluster
     depends_on:
-      dex-node:
-        condition: service_healthy
+      - fdb-coordinator
     networks:
-      - dex-network
-      - lux-monitoring
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/v2"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      - adx-network
+    deploy:
+      replicas: 3
 
-  # NATS Message Bus for inter-node communication
-  nats:
-    image: nats:2.10-alpine
-    container_name: lux-dex-nats
-    command: "-p 4222 -m 8222 --cluster_name LX_DEX"
+  # ADX Exchange
+  adx-exchange:
+    build: .
+    container_name: adx-exchange
+    environment:
+      - FDB_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
+      - FLOOR_CPM=0.50
+      - AUCTION_TIMEOUT=100ms
+      - LOG_LEVEL=info
+    volumes:
+      - ./fdb.cluster:/etc/foundationdb/fdb.cluster
+      - adx-data:/app/data
     ports:
-      - "4222:4222"  # Client connections
-      - "8222:8222"  # HTTP monitoring
+      - "8080:8080"  # HTTP API
+      - "8081:8081"  # WebSocket
+    depends_on:
+      - fdb-coordinator
+      - fdb-storage
+      - redis
     networks:
-      - dex-network
-      - lux-monitoring
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - adx-network
     restart: unless-stopped
 
-  # Prometheus Metrics
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: adx-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - adx-network
+    restart: unless-stopped
+
+  # Prometheus for metrics
   prometheus:
     image: prom/prometheus:latest
-    container_name: lux-dex-prometheus
+    container_name: adx-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     ports:
-      - "9091:9090"
-    volumes:
-      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
+      - "9090:9090"
     networks:
-      - dex-network
-    depends_on:
-      - dex-node
+      - adx-network
     restart: unless-stopped
 
-  # Grafana Dashboard
+  # Grafana for visualization
   grafana:
     image: grafana/grafana:latest
-    container_name: lux-dex-grafana
+    container_name: adx-grafana
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_INSTALL_PLUGINS=grafana-clock-panel
-    ports:
-      - "3001:3000"
+      - GF_INSTALL_PLUGINS=redis-datasource
     volumes:
-      - ../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ../monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
       - grafana-data:/var/lib/grafana
-    networks:
-      - dex-network
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
     depends_on:
       - prometheus
+    networks:
+      - adx-network
     restart: unless-stopped
 
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: lux-dex-nginx
+  # Ingress reverse proxy
+  ingress:
+    image: ghcr.io/hanzoai/ingress:latest
+    container_name: adx-ingress
+    volumes:
+      - ./ingress/ingress.conf:/etc/ingress/ingress.conf
+      - ./ingress/ssl:/etc/ingress/ssl
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ../nginx/ssl:/etc/nginx/ssl:ro
-      - nginx-cache:/var/cache/nginx
-    networks:
-      - dex-network
     depends_on:
-      - dex-ui
-      - dex-node
+      - adx-exchange
+    networks:
+      - adx-network
     restart: unless-stopped
 
-  # Test Runner (Optional - for automated testing)
-  test-runner:
-    build:
-      context: ../ui
-      dockerfile: ../docker/ui/Dockerfile.test
-    container_name: lux-dex-tests
+  # Home Miner (example)
+  adx-miner:
+    build: .
+    container_name: adx-miner
+    command: ["/app/adx-miner", "start", "--wallet", "0x0000000000000000000000000000000000000000", "--tunnel", "direct", "--port", "8888"]
     environment:
-      - PLAYWRIGHT_BASE_URL=http://dex-ui:3000
-      - API_URL=http://dex-node:8080
-      - WS_URL=ws://dex-node:8081
+      - ADX_EXCHANGE_URL=http://adx-exchange:8080
+      - CACHE_SIZE=10GB
     volumes:
-      - ../ui/test-results:/app/test-results
-      - ../ui/playwright-report:/app/playwright-report
-    networks:
-      - dex-network
+      - miner-cache:/app/cache
+    ports:
+      - "8888:8888"
     depends_on:
-      - dex-ui
-      - dex-node
-    profiles:
-      - test
-    command: npm run test:e2e
+      - adx-exchange
+    networks:
+      - adx-network
+    restart: unless-stopped
 
 networks:
-  dex-network:
+  adx-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.25.0.0/16
-  
-  # Connect to Lux monitoring network if available
-  lux-monitoring:
-    external: true
-    name: monitoring_lux-monitoring
 
 volumes:
-  dex-data:
-    driver: local
+  fdb-data:
+  fdb-logs:
+  adx-data:
+  redis-data:
   prometheus-data:
-    driver: local
   grafana-data:
-    driver: local
-  nginx-cache:
-    driver: local
+  miner-cache:

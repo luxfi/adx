@@ -229,13 +229,13 @@ services:
       - dex-network
     restart: unless-stopped
 
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: lx-nginx
+  # Ingress Reverse Proxy
+  ingress:
+    image: ghcr.io/hanzoai/ingress:latest
+    container_name: lx-ingress
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
+      - ./ingress.conf:/etc/ingress/ingress.conf:ro
+      - ./ssl:/etc/ingress/ssl:ro
     ports:
       - "443:443"
       - "80:80"
