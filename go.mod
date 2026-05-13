@@ -7,7 +7,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	// CTV Ad Exchange dependencies
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
-	github.com/luxfi/crypto v1.17.38
+	github.com/luxfi/crypto v1.19.0
 	github.com/luxfi/database v1.2.17
 	github.com/luxfi/metric v1.4.9
 	github.com/prebid/openrtb/v20 v20.1.0
@@ -53,9 +53,10 @@ require (
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/luxfi/accel v1.0.7 // indirect
 	github.com/luxfi/geth v1.16.69 // indirect
 	github.com/luxfi/ids v1.2.9 // indirect
-	github.com/luxfi/log v1.2.1 // indirect
+	github.com/luxfi/log v1.4.1 // indirect
 	github.com/luxfi/math v1.4.0 // indirect
 	github.com/luxfi/math/big v0.1.0 // indirect
 	github.com/luxfi/mock v0.1.0 // indirect
