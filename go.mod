@@ -1,6 +1,6 @@
 module github.com/luxfi/adx
 
-go 1.26.1
+go 1.26.3
 
 require (
 	// Additional dependencies
@@ -56,7 +56,8 @@ require (
 	github.com/luxfi/geth v1.16.69 // indirect
 	github.com/luxfi/ids v1.2.9 // indirect
 	github.com/luxfi/log v1.2.1 // indirect
-	github.com/luxfi/math v1.2.2 // indirect
+	github.com/luxfi/math v1.4.0 // indirect
+	github.com/luxfi/math/big v0.1.0 // indirect
 	github.com/luxfi/mock v0.1.0 // indirect
 	github.com/luxfi/utils v1.1.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
