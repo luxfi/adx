@@ -8,7 +8,7 @@ on:
     branches: [ main ]
 
 env:
-  GO_VERSION: '1.25.5'
+  GO_VERSION: '1.26.3'
   NODE_VERSION: '20'
   DOCKER_REGISTRY: registry.lux.network
   GOPRIVATE: github.com/luxfi/*
@@ -54,7 +54,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go: ['1.25.5']
+        go: ['1.26.3']
     steps:
       - uses: actions/checkout@v4
 
